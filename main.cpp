@@ -64,10 +64,10 @@ int main(int argc, char** argv)
         EqF.IMUpropagagte(result.gyroData, result.accData, result.time);
 
         // GNSS update
-        // if (result.gnssData != Vec3::Zero())
-        // {
-        //     EqF.GnssUpdate(result.gnssData);
-        // }
+        if (result.gnssData != Vec3::Zero())
+        {
+            EqF.GnssUpdate(result.gnssData);
+        }
 
         // baro update
         // EqF.BaroUpdate(result.baroData);
@@ -78,7 +78,7 @@ int main(int argc, char** argv)
         EqFOutput output = EqF.GetEqFOutput();
         printEqFEstimate(output, data);
 
-        std::this_thread::sleep_for(std::chrono::milliseconds(100));
+        std::this_thread::sleep_for(std::chrono::milliseconds(20));
     }
     return 0;
 }

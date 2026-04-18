@@ -256,11 +256,11 @@ bool VectorNav::configureBinaryOutput1(std::uint16_t rateDivisor)
                                   IMUGROUP_UNCOMPGYRO |
                                   IMUGROUP_TEMP |
                                   IMUGROUP_PRES |
-                                  IMUGROUP_MAG),
+                                  IMUGROUP_MAG |
+                                  IMUGROUP_ACCEL),
             static_cast<GpsGroup>(GPSGROUP_FIX |
                                   GPSGROUP_POSECEF),
-            static_cast<AttitudeGroup>(ATTITUDEGROUP_DCM |
-                                       ATTITUDEGROUP_ACCELNED),
+            static_cast<AttitudeGroup>(ATTITUDEGROUP_DCM),
             static_cast<InsGroup>(INSGROUP_POSECEF |
                                   INSGROUP_VELNED |
                                   INSGROUP_POSU |
@@ -373,15 +373,15 @@ void VectorNav::handlePacket(vn::protocol::uart::Packet& packet)
                               IMUGROUP_UNCOMPGYRO |
                               IMUGROUP_TEMP |
                               IMUGROUP_PRES |
-                              IMUGROUP_MAG);
+                              IMUGROUP_MAG |
+                              IMUGROUP_ACCEL);
 
     const auto expectedGps =
         static_cast<GpsGroup>(GPSGROUP_FIX |
                               GPSGROUP_POSECEF);
 
     const auto expectedAttitude =
-        static_cast<AttitudeGroup>(ATTITUDEGROUP_DCM |
-                                   ATTITUDEGROUP_ACCELNED);
+        static_cast<AttitudeGroup>(ATTITUDEGROUP_DCM);
 
     const auto expectedIns =
         static_cast<InsGroup>(INSGROUP_POSECEF |
@@ -422,6 +422,11 @@ void VectorNav::handlePacket(vn::protocol::uart::Packet& packet)
         d.Mag << v.x, v.y, v.z;
     }
 
+    {
+        const vec3f v = packet.extractVec3f();
+        d.Accel << v.x, v.y, v.z;
+    }
+
     // GPSGROUP_FIX | GPSGROUP_POSECEF
     d.Fix = packet.extractUint8();
 
@@ -436,11 +441,6 @@ void VectorNav::handlePacket(vn::protocol::uart::Packet& packet)
             v.e00, v.e01, v.e02,
             v.e10, v.e11, v.e12,
             v.e20, v.e21, v.e22;
-    }
-
-    {
-        const vec3f v = packet.extractVec3f();
-        d.AccelNed << v.x, v.y, v.z;
     }
 
     {

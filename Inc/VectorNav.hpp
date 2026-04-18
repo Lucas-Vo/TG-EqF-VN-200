@@ -24,6 +24,7 @@ struct vectornavData
     float Temp = 0.0F; // deg C
     float Pres = 0.0F; // kPa
     Vec3f Mag = Vec3f::Zero(); // gauss
+    Vec3f Accel = Vec3f::Zero(); // ms-2 compensated body acceleration
 
     // GNSS Group
     std::uint8_t Fix = 0; // GPS fix quality
@@ -31,10 +32,9 @@ struct vectornavData
 
     // Attitude Group
     Mat3f Dcm = Mat3f::Zero(); // attitude DCM
-    Vec3d InsPosEcef = Vec3d::Zero(); // m ECEF
-
+    
     // INS Group
-    Vec3f AccelNed = Vec3f::Zero(); // ms-2 NED
+    Vec3d InsPosEcef = Vec3d::Zero(); // m ECEF
     Vec3f InsVelNed = Vec3f::Zero(); // ms-1 NED
     float InsPosU = 0.0F; // m
     float InsVelU = 0.0F; // ms-1

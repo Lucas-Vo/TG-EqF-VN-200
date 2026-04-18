@@ -102,11 +102,11 @@ void EqFalgo::BaroUpdate(double baro) {
 }
 
 void EqFalgo::GnssUpdate(Vec3 gnss) {
-    Vec3 delta = Xhat.pose.p() - gnss;
+    const Vec3 delta = gnss - Xhat.pose.p();
 
     Mat3x18 C = Mat3x18::Zero();
-    C.block<3,3>(0,0) = SO3::wedge(0.5 * (Xhat.pose.p() + gnss));
-    C.block<3,3>(0,6) = -Mat3::Identity();
+    C.block<3,3>(0,0) = -SO3::wedge(Xhat.pose.p());
+    C.block<3,3>(0,6) = Mat3::Identity();
 
 
     Mat3 Sinv = (C*Sigma*C.transpose() + Qgnss).inverse();

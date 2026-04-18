@@ -43,11 +43,11 @@ void printINSEstimate(const vectornavData& data)
 
     std::cout << std::fixed << std::setprecision(6)
               << kAnsiGreen
-              << "INS Estimate\n";
+              << "VN-200 Estimate\n";
     printMat3Block(std::cout, "  DCM^T", data.Dcm.transpose().cast<double>());
     printVec3Line(std::cout, "  positionNED", positionNed);
     printVec3Line(std::cout, "  velNED", data.InsVelNed.cast<double>());
-    printVec3Line(std::cout, "  AccelNed", data.AccelNed.cast<double>());
+    printVec3Line(std::cout, "  Accel", data.Accel.cast<double>());
     std::cout << "  PosU=" << data.InsPosU << '\n'
               << "  VelU=" << data.InsVelU << '\n'
               << kAnsiReset;
