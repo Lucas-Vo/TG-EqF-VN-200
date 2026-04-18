@@ -1,2 +1,5 @@
 build/
 CMakeFiles/
+.venv/
+.codex
+.CmakeCache.txt
