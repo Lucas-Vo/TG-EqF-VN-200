@@ -1,10 +1,18 @@
-#include "utils.hpp"
+#pragma once
+
+#include "linalgtypes.hpp"
+#include "SE23xse23.hpp"
+
+typedef struct
+{
+    SE23xse23 Xhat;
+    Mat18 Sigma;
+} EqFOutput;
 
 class EqFalgo
 {
     // constants
     const Vec3 g = {0, 0, 9.81};
-    // TODO: verify this
     const Vec3 m = {0.126029, -0.813754, 0.567381}; // trondheim magnetic field
 
     SE23xse23 Xhat;     // State estimate

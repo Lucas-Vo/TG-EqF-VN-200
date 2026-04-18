@@ -215,9 +215,9 @@ Mat3 EqFalgo::defaultQgnss()
 {
     Mat3 Q = Mat3::Zero();
 
-    // 30m in standard deviation
-    Q(0, 0) = 30.0 * 30.0;
-    Q(1, 1) = 30.0 * 30.0;
+    // 5m in standard deviation in xy-direction, trust barometer more, so 30m in z-direction
+    Q(0, 0) = 5.0 * 5.0;
+    Q(1, 1) = 5.0 * 5.0;
     Q(2, 2) = 30.0 * 30.0;
 
     return Q;

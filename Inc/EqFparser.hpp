@@ -1,11 +1,7 @@
 #pragma once
 
-#include <iosfwd>
-#include <tuple>
-
 #include "VectorNav.hpp"
 #include "linalgtypes.hpp"
-#include "SE23xse23.hpp"
 
 typedef struct {
     Vec3 magData; // attitude with |m| = 1
@@ -17,14 +13,7 @@ typedef struct {
 }EqFparserResult;
 
 EqFparserResult EqFparser(const vectornavData& data);
-std::ostream& operator<<(std::ostream& os, const EqFparserResult& data);
 
-// OUTPUT
-typedef struct
-{
-    SE23xse23 Xhat;
-    Mat18 Sigma;
-} EqFOutput;
+bool setEcefReference(const vectornavData& data);
+Vec3 ecefToNed(const Vec3& ecef);
 
-void printINSEstimate(const vectornavData& data);
-void printEqFEstimate(const EqFOutput& output, const vectornavData& data);

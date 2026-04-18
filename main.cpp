@@ -1,19 +1,16 @@
 #include "VectorNav.hpp"
 #include "EqFalgo.hpp"
-#include "utils.hpp"
+#include "EqFparser.hpp"
+#include "EqFlogger.hpp"
 
 #include <chrono>
 #include <csignal>
 #include <cstdlib>
-#include <iomanip>
-#include <iostream>
 #include <thread>
 
 namespace
 {
 volatile std::sig_atomic_t gRunning = 1;
-constexpr const char* kAnsiLightBlue = "\033[94m";
-constexpr const char* kAnsiReset = "\033[0m";
 
 void signalHandler(int)
 {
@@ -61,15 +58,7 @@ int main(int argc, char** argv)
 
         // parse to EqF friendly data
         EqFparserResult result = EqFparser(data);
-        std::cout << std::fixed << std::setprecision(6)
-                  << kAnsiLightBlue
-                  << "Mag, GNSS and Baro\n"
-                  << "  result.magData=[" << result.magData(0) << ", "
-                  << result.magData(1) << ", " << result.magData(2) << "]\n"
-                  << "  result.gnssData=[" << result.gnssData(0) << ", "
-                  << result.gnssData(1) << ", " << result.gnssData(2) << "]\n"
-                  << "  result.baroData=" << result.baroData << '\n'
-                  << kAnsiReset;
+        printMeasurements(result);
 
         // IMU propogate
         EqF.IMUpropagagte(result.gyroData, result.accData, result.time);
@@ -79,6 +68,9 @@ int main(int argc, char** argv)
         {
             EqF.GnssUpdate(result.gnssData);
         }
+
+        // baro update
+        // EqF.BaroUpdate(result.baroData);
         
         // mag update
         EqF.MagUpdate(result.magData);
