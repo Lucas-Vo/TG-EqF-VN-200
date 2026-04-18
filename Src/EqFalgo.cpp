@@ -199,9 +199,9 @@ Mat3 EqFalgo::defaultQmag()
     Mat3 Q = Mat3::Zero();
 
     // Magnetometer xyz
-    Q(0, 0) = 0.2 * 0.2;
-    Q(1, 1) = 0.2 * 0.2;
-    Q(2, 2) = 0.2 * 0.2;
+    Q(0, 0) = 0.02 * 0.02;
+    Q(1, 1) = 0.02 * 0.02;
+    Q(2, 2) = 0.02 * 0.02;
 
     return Q;
 }

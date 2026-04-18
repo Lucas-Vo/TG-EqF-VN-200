@@ -13,7 +13,7 @@ class EqFalgo
 {
     // constants
     const Vec3 g = {0, 0, 9.81};
-    const Vec3 m = {0.126029, -0.813754, 0.567381}; // trondheim magnetic field
+    const Vec3 m = {0.632887, 0.505082, 0.586810}; // trondheim magnetic field
 
     SE23xse23 Xhat;     // State estimate
     Mat18 Sigma;        // state covariance

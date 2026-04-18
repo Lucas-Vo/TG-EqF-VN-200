@@ -1,10 +1,117 @@
 #include "VectorNav.hpp"
 
+#include <chrono>
 #include <iostream>
+#include <thread>
+
+#if __linux__ || __APPLE__ || __CYGWIN__ || __QNXNTO__
+#include <cerrno>
+#include <cstring>
+#include <fcntl.h>
+#include <sys/ioctl.h>
+#include <termios.h>
+#include <unistd.h>
+#endif
 
 using namespace vn::sensors;
 using namespace vn::protocol::uart;
 using namespace vn::math;
+
+namespace
+{
+constexpr std::uint32_t kConfigureRetryCount = 3U;
+constexpr auto kReconnectSettleDelay = std::chrono::milliseconds(500);
+constexpr auto kSerialPulseHighDelay = std::chrono::milliseconds(150);
+constexpr auto kSerialPulseLowDelay = std::chrono::milliseconds(150);
+
+#if __linux__ || __APPLE__ || __CYGWIN__ || __QNXNTO__
+bool baudrateToTermios(std::uint32_t baudrate, speed_t& out)
+{
+    switch (baudrate)
+    {
+        case 9600U:
+            out = B9600;
+            return true;
+        case 19200U:
+            out = B19200;
+            return true;
+        case 38400U:
+            out = B38400;
+            return true;
+        case 57600U:
+            out = B57600;
+            return true;
+        case 115200U:
+            out = B115200;
+            return true;
+#if !defined(__QNXNTO__)
+        case 230400U:
+            out = B230400;
+            return true;
+#if !defined(__APPLE__)
+        case 460800U:
+            out = B460800;
+            return true;
+        case 921600U:
+            out = B921600;
+            return true;
+#endif
+#endif
+        default:
+            return false;
+    }
+}
+
+void pulseSerialPort(const std::string& portName, std::uint32_t baudrate)
+{
+    const int fd = ::open(portName.c_str(), O_RDWR | O_NOCTTY | O_NONBLOCK);
+    if (fd == -1)
+    {
+        std::cerr << "Serial pulse open failed: " << std::strerror(errno) << '\n';
+        return;
+    }
+
+    speed_t speed = B115200;
+    baudrateToTermios(baudrate, speed);
+
+    termios settings{};
+    if (tcgetattr(fd, &settings) == 0)
+    {
+        cfmakeraw(&settings);
+        cfsetispeed(&settings, speed);
+        cfsetospeed(&settings, speed);
+        settings.c_cflag |= CLOCAL | CREAD | HUPCL;
+#ifdef CRTSCTS
+        settings.c_cflag &= ~CRTSCTS;
+#endif
+        settings.c_cflag &= ~PARENB;
+        settings.c_cflag &= ~CSTOPB;
+        settings.c_cflag &= ~CSIZE;
+        settings.c_cflag |= CS8;
+        tcsetattr(fd, TCSANOW, &settings);
+    }
+
+    tcflush(fd, TCIOFLUSH);
+
+#if defined(TIOCMBIS) && defined(TIOCMBIC) && defined(TIOCM_DTR) && defined(TIOCM_RTS)
+    int modemBits = TIOCM_DTR | TIOCM_RTS;
+    if (ioctl(fd, TIOCMBIS, &modemBits) == 0)
+    {
+        std::this_thread::sleep_for(kSerialPulseHighDelay);
+        ioctl(fd, TIOCMBIC, &modemBits);
+        std::this_thread::sleep_for(kSerialPulseLowDelay);
+    }
+#endif
+
+    ::close(fd);
+    std::this_thread::sleep_for(kReconnectSettleDelay);
+}
+#else
+void pulseSerialPort(const std::string&, std::uint32_t)
+{
+}
+#endif
+}
 
 const char* gpsFixLabel(std::uint8_t fix)
 {
@@ -34,22 +141,6 @@ bool gpsFixHasPosition(std::uint8_t fix)
     return (fix == 3U) || (fix == 4U);
 }
 
-std::ostream& operator<<(std::ostream& os, const vectornavData& data)
-{
-    os << "vectornavData{"
-    //    << "TimeStartup=" << data.TimeStartup
-       << ", Fix=" << gpsFixLabel(data.Fix)
-       << "(" << static_cast<unsigned int>(data.Fix) << ")"
-       << ", PosEcef=[" << data.GnssPosEcef(0) << ", " << data.GnssPosEcef(1) << ", " << data.GnssPosEcef(2) << "]"
-    //    << ", Temp=" << data.Temp
-    //    << ", Pres=" << data.Pres
-    //    << ", Mag=[" << data.Mag(0) << ", " << data.Mag(1) << ", " << data.Mag(2) << "]"
-    //    << ", UncompGyro=[" << data.UncompGyro(0) << ", " << data.UncompGyro(1) << ", " << data.UncompGyro(2) << "]"
-    //    << ", UncompAccel=[" << data.UncompAccel(0) << ", " << data.UncompAccel(1) << ", " << data.UncompAccel(2) << "]"
-       << "}";
-    return os;
-}
-
 VectorNav::~VectorNav()
 {
     disconnect();
@@ -65,19 +156,23 @@ bool VectorNav::init(const std::string& portName,
         return false;
     }
 
-    bool connectedAtStreamBaud = false;
-    if (streamBaud != initialBaud_)
+    const auto connectForStreaming = [this, &portName, streamBaud]() -> bool
     {
-        std::cout << "Connecting to " << portName << " at " << streamBaud << "...\n";
-        connectedAtStreamBaud = connect(portName, streamBaud);
-    }
+        bool connectedAtStreamBaud = false;
+        if (streamBaud != initialBaud_)
+        {
+            std::cout << "Connecting to " << portName << " at " << streamBaud << "...\n";
+            connectedAtStreamBaud = connect(portName, streamBaud);
+        }
 
-    if (!connectedAtStreamBaud)
-    {
+        if (connectedAtStreamBaud)
+        {
+            return true;
+        }
+
         std::cout << "Connecting to " << portName << " at " << initialBaud_ << "...\n";
         if (!connect(portName, initialBaud_))
         {
-            std::cerr << "Could not connect to sensor\n";
             return false;
         }
 
@@ -86,15 +181,50 @@ bool VectorNav::init(const std::string& portName,
             std::cout << "Changing baud to " << streamBaud << "...\n";
             if (!changeBaud(streamBaud))
             {
-                std::cerr << "Could not change baud\n";
                 return false;
             }
         }
+
+        return true;
+    };
+
+    pulseSerialPort(portName, initialBaud_);
+
+    if (!connectForStreaming())
+    {
+        std::cerr << "Could not connect to sensor\n";
+        return false;
     }
 
     const std::uint16_t rateDivisor = static_cast<std::uint16_t>(800U / asyncDataOutputFrequency);
     std::cout << "Configuring Binary Output 1 for " << asyncDataOutputFrequency << " Hz...\n";
-    if (!configureBinaryOutput1(rateDivisor))
+    bool configured = false;
+    for (std::uint32_t attempt = 1U; attempt <= kConfigureRetryCount; ++attempt)
+    {
+        if (configureBinaryOutput1(rateDivisor))
+        {
+            configured = true;
+            break;
+        }
+
+        if (attempt == kConfigureRetryCount)
+        {
+            break;
+        }
+
+        std::cerr << "Retrying Binary Output 1 after serial pulse (attempt "
+                  << (attempt + 1U) << "/" << kConfigureRetryCount << ")...\n";
+        disconnect();
+        std::this_thread::sleep_for(kReconnectSettleDelay);
+        pulseSerialPort(portName, streamBaud);
+
+        if (!connectForStreaming())
+        {
+            std::cerr << "Reconnect before Binary Output 1 retry failed\n";
+        }
+    }
+
+    if (!configured)
     {
         std::cerr << "Could not configure Binary Output 1\n";
         return false;
