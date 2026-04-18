@@ -51,7 +51,7 @@ void EqFalgo::MagUpdate(Vec3 mag) {
     Vec3 delta = SO3::wedge(m) * Xhat.pose.R() * mag;
 
     Mat3x18 C = Mat3x18::Zero();
-    C.block<3,3>(0,0) = SO3::wedge(m);
+    C.block<3,3>(0,0) = SO3::wedge(m) * SO3::wedge(m);
 
     Mat3 Sinv = (C * Sigma * C.transpose() + Qmag).inverse();
     Mat18x3 K = Sigma * C.transpose() * Sinv;
@@ -228,7 +228,7 @@ Mat18 EqFalgo::defaultSigma0()
     Mat18 S = Mat18::Zero();
 
     // Assumed order:
-    // [rot(3), vel(3), pos(3), gyro_bias(3), virtual_bias(3), accel_bias(3)]
+    // [rot(3), vel(3), pos(3), gyro_bias(3), accel_bias(3), virtual_bias(3)]
 
     S.block<3, 3>(0, 0) = 2.0 * 2.0 * Mat3::Identity();     // attitude
     S.block<3, 3>(3, 3) = 1.0 * 1.0 * Mat3::Identity();     // velocity

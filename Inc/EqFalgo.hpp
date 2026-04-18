@@ -5,7 +5,7 @@ class EqFalgo
     // constants
     const Vec3 g = {0, 0, 9.81};
     // TODO: verify this
-    const Vec3 m = {-0.138233, 0.680755, 0.719349}; // trondheim magnetic field
+    const Vec3 m = {0.126029, -0.813754, 0.567381}; // trondheim magnetic field
 
     SE23xse23 Xhat;     // State estimate
     Mat18 Sigma;        // state covariance
@@ -35,7 +35,7 @@ class EqFalgo
 
 public:
     EqFalgo(Mat3 Qmag, double Qbaro, Mat3 Qgnss, Mat18 Sigma0, Mat18 P);
-    EqFalgo(); // tuned for VN300
+    EqFalgo(); // tuned for VN200
 
     void IMUpropagagte(Vec3 gyro, Vec3 acc, double time);
     void MagUpdate(Vec3 mag);
