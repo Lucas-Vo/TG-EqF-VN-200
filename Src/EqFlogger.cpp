@@ -55,8 +55,10 @@ void printINSEstimate(const vectornavData& data)
 
 void printEqFEstimate(const EqFOutput& output, const vectornavData& data)
 {
-    const Vec3 biasVPlusAccel =
-        SE23::vee(output.Xhat.bias).segment<3>(3) + data.UncompAccel.cast<double>();
+    (void)data;
+
+    const Vec9 bHat = -output.Xhat.pose.invAdjoint() * SE23::vee(output.Xhat.bias);
+    const Vec3 accelMinusBiasV =  data.UncompAccel.cast<double>() - bHat.segment<3>(3);
     const double velTraceSqrt =
         std::sqrt(std::max(0.0, output.Sigma.block<3, 3>(3, 3).trace()));
     const double posTraceSqrt =
@@ -68,7 +70,7 @@ void printEqFEstimate(const EqFOutput& output, const vectornavData& data)
     printMat3Block(std::cout, "  pose.R()", output.Xhat.pose.R());
     printVec3Line(std::cout, "  pose.p()", output.Xhat.pose.p());
     printVec3Line(std::cout, "  pose.v()", output.Xhat.pose.v());
-    printVec3Line(std::cout, "  bias.v()+UncompAccel", biasVPlusAccel);
+    printVec3Line(std::cout, "  accelMinusBiasV", accelMinusBiasV);
     std::cout << "  sqrt(trace(Sigma(3-5)))=" << velTraceSqrt << '\n'
               << "  sqrt(trace(Sigma(6-8)))=" << posTraceSqrt << '\n'
               << kAnsiReset;

@@ -64,10 +64,10 @@ int main(int argc, char** argv)
         EqF.IMUpropagagte(result.gyroData, result.accData, result.time);
 
         // GNSS update
-        if (result.gnssData != Vec3::Zero())
-        {
-            EqF.GnssUpdate(result.gnssData);
-        }
+        // if (result.gnssData != Vec3::Zero())
+        // {
+        //     EqF.GnssUpdate(result.gnssData);
+        // }
 
         // baro update
         // EqF.BaroUpdate(result.baroData);
