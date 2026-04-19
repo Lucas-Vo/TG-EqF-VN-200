@@ -8,9 +8,9 @@
 #include <limits>
 
 namespace {
-    constexpr const char* kAnsiLightBlue = "\033[94m";
+    constexpr const char* kAnsiRed = "\033[91m";
     constexpr const char* kAnsiGreen = "\033[32m";
-    constexpr const char* kAnsiPink = "\033[95m";
+    constexpr const char* kAnsiPurple = "\033[105m";
     constexpr const char* kAnsiReset = "\033[0m";
     constexpr const char* kEstimateCsvHeader =
         "timestamp,angle_axis_x,angle_axis_y,angle_axis_z,angle_axis_cos,angle_axis_sin,"
@@ -115,7 +115,7 @@ void printMeasurements(const EqFparserResult& result, const vectornavData& data,
     const AngleAxisSample angleAxis = fromTwoVectorsAngleAxis(magneticField, result.magData);
 
     std::cout << std::fixed << std::setprecision(6)
-              << kAnsiLightBlue
+              << kAnsiGreen
               << "Measurements\n";
     printAngleAxis(std::cout, "  angleAxis", angleAxis);
     printVec3Line(std::cout, "  positionNED", result.gnssPosData);
@@ -131,7 +131,7 @@ void printVNEstimate(const vectornavData& data)
         : Vec3::Constant(std::numeric_limits<double>::quiet_NaN());
 
     std::cout << std::fixed << std::setprecision(6)
-              << kAnsiGreen
+              << kAnsiRed
               << "VN-200 Estimate\n";
     printMat3Block(std::cout, "  DCM^T", data.Dcm.transpose().cast<double>());
     printVec3Line(std::cout, "  positionNED", positionNed);
@@ -154,7 +154,7 @@ void printTGEqFEstimate(const EqFOutput& output, const vectornavData& data)
         std::sqrt(std::max(0.0, output.Sigma.block<3, 3>(6, 6).trace()));
 
     std::cout << std::fixed << std::setprecision(6)
-              << kAnsiPink
+              << kAnsiPurple
               << "EqF Estimate\n";
     printMat3Block(std::cout, "  pose.R()", output.Xhat.pose.R());
     printVec3Line(std::cout, "  pose.p()", output.Xhat.pose.p());
