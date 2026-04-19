@@ -10,6 +10,7 @@ ROOT_DIR = Path(__file__).resolve().parents[1]
 LOG_DIR = ROOT_DIR / "log"
 VN_COLOR = "#d62728"
 TGEQF_COLOR = "#6a5acd"
+MEASUREMENTS_COLOR = "#32cd32"
 
 
 def load_series(path: Path) -> dict[str, list[float]]:
@@ -45,6 +46,7 @@ def add_comparison_line(
     axis: plt.Axes,
     vn_data: dict[str, list[float]],
     tgeqf_data: dict[str, list[float]],
+    measurements_data: dict[str, list[float]],
     column: str,
     label: str,
 ) -> None:
@@ -54,5 +56,11 @@ def add_comparison_line(
         tgeqf_data[column],
         color=TGEQF_COLOR,
         label=f"TGEqF {label}",
+    )
+    axis.plot(
+        measurements_data["timestamp"],
+        measurements_data[column],
+        color=MEASUREMENTS_COLOR,
+        label=f"Measurements {label}",
     )
     axis.legend(loc="best")

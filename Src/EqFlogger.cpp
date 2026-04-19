@@ -74,6 +74,27 @@ namespace {
         return sample;
     }
 
+    AngleAxisSample fromTwoVectorsAngleAxis(const Vec3& from, const Vec3& to)
+    {
+        if (!from.allFinite() || !to.allFinite() || from.norm() <= 0.0 || to.norm() <= 0.0)
+        {
+            const double nan = std::numeric_limits<double>::quiet_NaN();
+            return {Vec3::Constant(nan), nan};
+        }
+
+        const Eigen::Quaterniond rotation =
+            Eigen::Quaterniond::FromTwoVectors(from.normalized(), to.normalized());
+        return toAngleAxis(rotation.toRotationMatrix());
+    }
+
+    void printAngleAxis(std::ostream& os, const char* label, const AngleAxisSample& value)
+    {
+        os << label
+           << "=[" << value.axis(0) << ", " << value.axis(1) << ", " << value.axis(2) << "]"
+           << ", cos=" << std::cos(value.angle)
+           << ", sin=" << std::sin(value.angle) << '\n';
+    }
+
     std::ofstream openCsvStream(const std::filesystem::path& path)
     {
         std::filesystem::create_directories(path.parent_path());
@@ -89,15 +110,18 @@ namespace {
     }
 }
 
-void printMeasurements(const EqFparserResult& result)
+void printMeasurements(const EqFparserResult& result, const vectornavData& data, const Vec3& magneticField)
 {
+    const AngleAxisSample angleAxis = fromTwoVectorsAngleAxis(magneticField, result.magData);
+
     std::cout << std::fixed << std::setprecision(6)
               << kAnsiLightBlue
               << "Measurements\n";
-    printVec3Line(std::cout, "  result.magData", result.magData);
-    printVec3Line(std::cout, "  result.gnssData", result.gnssData);
-    std::cout << "  result.baroData=" << result.baroData << '\n'
-              << kAnsiReset;
+    printAngleAxis(std::cout, "  angleAxis", angleAxis);
+    printVec3Line(std::cout, "  positionNED", result.gnssPosData);
+    printVec3Line(std::cout, "  velNED", result.gnssVelData);
+    printVec3Line(std::cout, "  Accel", data.UncompAccel.cast<double>());
+    std::cout << kAnsiReset;
 }
 
 void printVNEstimate(const vectornavData& data)
@@ -139,6 +163,30 @@ void printTGEqFEstimate(const EqFOutput& output, const vectornavData& data)
     std::cout << "  sqrt(trace(Sigma(3-5)))=" << velTraceSqrt << '\n'
               << "  sqrt(trace(Sigma(6-8)))=" << posTraceSqrt << '\n'
               << kAnsiReset;
+}
+
+void logMeasurements(const EqFparserResult& result, const vectornavData& data, const Vec3& magneticField)
+{
+    const double nan = std::numeric_limits<double>::quiet_NaN();
+    const AngleAxisSample angleAxis = fromTwoVectorsAngleAxis(magneticField, result.magData);
+
+    std::ofstream stream = openCsvStream("log/Measurements.csv");
+    if (!stream)
+    {
+        return;
+    }
+
+    stream << std::fixed << std::setprecision(3)
+           << result.time << ','
+           << angleAxis.axis(0) << ',' << angleAxis.axis(1) << ',' << angleAxis.axis(2) << ','
+           << std::cos(angleAxis.angle) << ',' << std::sin(angleAxis.angle) << ','
+           << result.gnssPosData(0) << ',' << result.gnssPosData(1) << ',' << result.gnssPosData(2) << ','
+           << result.gnssVelData(0) << ',' << result.gnssVelData(1) << ',' << result.gnssVelData(2) << ','
+           << static_cast<double>(data.UncompAccel(0)) << ','
+           << static_cast<double>(data.UncompAccel(1)) << ','
+           << static_cast<double>(data.UncompAccel(2)) << ','
+           << nan << ','
+           << nan << '\n';
 }
 
 void logVNEstimate(const vectornavData& data)

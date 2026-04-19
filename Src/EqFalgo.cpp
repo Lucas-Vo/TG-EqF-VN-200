@@ -5,7 +5,8 @@
  * Public API
  */
 
-TGEqF::TGEqF(Mat3 Qmag, double Qbaro, Mat3 Qgnss, Mat18 Sigma0, Mat18 P)
+TGEqF::TGEqF(const Vec3& magneticField, Mat3 Qmag, double Qbaro, Mat6 Qgnss, Mat18 Sigma0, Mat18 P)
+    : m(magneticField)
 {
     this->Qmag = Qmag;
     this->Qbaro = Qbaro;
@@ -18,8 +19,8 @@ TGEqF::TGEqF(Mat3 Qmag, double Qbaro, Mat3 Qgnss, Mat18 Sigma0, Mat18 P)
     last_time = 0;
 }
 
-TGEqF::TGEqF()
-    : TGEqF(defaultQmag(), defaultQbaro(), defaultQgnss(), defaultSigma0(), defaultP())
+TGEqF::TGEqF(const Vec3& magneticField)
+    : TGEqF(magneticField, defaultQmag(), defaultQbaro(), defaultQgnss(), defaultSigma0(), defaultP())
 {
 }
 
@@ -101,16 +102,19 @@ void TGEqF::BaroUpdate(double baro) {
 
 }
 
-void TGEqF::GnssUpdate(Vec3 gnss) {
-    const Vec3 delta = gnss - Xhat.pose.p();
+void TGEqF::GnssUpdate(Vec3 gnssPos, Vec3 gnssVel) {
+    Vec6 delta = Vec6::Zero();
+    delta.segment<3>(0) = gnssPos - Xhat.pose.p();
+    delta.segment<3>(3) = gnssVel - Xhat.pose.v();
 
-    Mat3x18 C = Mat3x18::Zero();
+    Mat6x18 C = Mat6x18::Zero();
     C.block<3,3>(0,0) = -SO3::wedge(Xhat.pose.p());
     C.block<3,3>(0,6) = Mat3::Identity();
+    C.block<3,3>(3,0) = -SO3::wedge(Xhat.pose.v());
+    C.block<3,3>(3,3) = Mat3::Identity();
 
-
-    Mat3 Sinv = (C*Sigma*C.transpose() + Qgnss).inverse();
-    Mat18x3 K = Sigma * C.transpose() * Sinv;
+    Mat6 Sinv = (C * Sigma * C.transpose() + Qgnss).inverse();
+    Mat18x6 K = Sigma * C.transpose() * Sinv;
     Vec18 DeltaVee = K * delta;
     se23xse23 Delta;
     Delta.pose = SE23::wedge(DeltaVee.segment<9>(0));
@@ -211,14 +215,17 @@ double TGEqF::defaultQbaro()
     return 2.0 * 2.0;
 }
 
-Mat3 TGEqF::defaultQgnss()
+Mat6 TGEqF::defaultQgnss()
 {
-    Mat3 Q = Mat3::Zero();
+    Mat6 Q = Mat6::Zero();
 
-    // 5m in standard deviation in xy-direction, trust barometer more, so 30m in z-direction
+    // Position: 5m in xy, 30m in z. Velocity: 1m/s on all axes.
     Q(0, 0) = 5.0 * 5.0;
     Q(1, 1) = 5.0 * 5.0;
     Q(2, 2) = 30.0 * 30.0;
+    Q(3, 3) = 1.0 * 1.0;
+    Q(4, 4) = 1.0 * 1.0;
+    Q(5, 5) = 1.0 * 1.0;
 
     return Q;
 }
@@ -246,15 +253,12 @@ Mat18 TGEqF::defaultP()
 
     // Continuous-time process covariance placeholders
 
-    P.block<3, 3>(0, 0) = 1e-3 * Mat3::Identity();   // rot process
-    P.block<3, 3>(3, 3) = 1e-2 * Mat3::Identity();   // vel process
-    P.block<3, 3>(6, 6) = 1e-3 * Mat3::Identity();   // pos process
+    P.block<3, 3>(0, 0) = 1e-2 * Mat3::Identity();   // rot process
+    P.block<3, 3>(3, 3) = 1e-1 * Mat3::Identity();   // vel process
+    P.block<3, 3>(6, 6) = 1e-2 * Mat3::Identity();   // pos process
     P.block<3, 3>(9, 9) = 1e-3 * Mat3::Identity();   // gyro bias RW
     P.block<3, 3>(12, 12) = 1e-3 * Mat3::Identity(); // accel bias RW
     P.block<3, 3>(15, 15) = 1e-3 * Mat3::Identity(); // virtual bias RW
-
-    // convert to discrete time
-    P = (Mat18::Identity() + A*dt) * P * (Mat18::Identity() + A.transpose()*dt);
 
     return P;
 }

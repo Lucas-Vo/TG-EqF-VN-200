@@ -40,7 +40,8 @@ int main(int argc, char** argv)
     }
 
     // filter logic
-    TGEqF TgEqF = TGEqF();
+    const Vec3 m = {0.373029, 0.024338, 0.927500};
+    TGEqF TgEqF = TGEqF(m);
 
     // logging logic
 
@@ -53,21 +54,22 @@ int main(int argc, char** argv)
             break;
         }
         printVNEstimate(data);
-        // logVNEstimate(data);
+        logVNEstimate(data);
 
         /* BEGIN Filter Logic */
 
         // parse to EqF friendly data
         EqFparserResult result = EqFparser(data);
-        printMeasurements(result);
+        printMeasurements(result, data, m);
+        logMeasurements(result, data, m);
 
         // IMU propogate
         TgEqF.IMUpropagagte(result.gyroData, result.accData, result.time);
 
         // GNSS update
-        if (result.gnssData != Vec3::Zero())
+        if (result.hasGnssMeasurement)
         {
-            TgEqF.GnssUpdate(result.gnssData);
+            TgEqF.GnssUpdate(result.gnssPosData, result.gnssVelData);
         }
 
         // baro update
@@ -78,7 +80,7 @@ int main(int argc, char** argv)
         
         EqFOutput output = TgEqF.GetEqFOutput();
         printTGEqFEstimate(output, data);
-        // logTGEqFEstimate(output, data);
+        logTGEqFEstimate(output, data);
 
         std::this_thread::sleep_for(std::chrono::milliseconds(20));
     }

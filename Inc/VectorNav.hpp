@@ -29,6 +29,7 @@ struct vectornavData
     // GNSS Group
     std::uint8_t Fix = 0; // GPS fix quality
     Vec3d GnssPosEcef = Vec3d::Zero(); // m ECEF
+    Vec3f GnssVelNed = Vec3f::Zero(); // ms-1 NED
 
     // Attitude Group
     Mat3f Dcm = Mat3f::Zero(); // attitude DCM

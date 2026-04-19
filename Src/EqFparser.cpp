@@ -1,5 +1,7 @@
 #include "EqFparser.hpp"
 
+#include <limits>
+
 constexpr double kNsToS = 1.0e-9;
 constexpr double kKelvinOffset = 273.15;
 constexpr double kRd = 287.05;
@@ -112,9 +114,11 @@ Vec3 ecefToNed(const Vec3& ecef)
 EqFparserResult EqFparser(const vectornavData& data)
 {
     EqFparserResult result{};
+    const double nan = std::numeric_limits<double>::quiet_NaN();
 
     // ---------------- timestamp ----------------
     result.time = static_cast<double>(data.TimeStartup) * kNsToS;
+    result.hasGnssMeasurement = false;
 
     // ---------------- IMU: use as is ----------------
     result.gyroData = data.UncompGyro.cast<double>();
@@ -142,16 +146,31 @@ EqFparserResult EqFparser(const vectornavData& data)
     }
 
     // ---------------- GNSS: convert ECEF to NED ----------------
-    result.gnssData = Vec3::Zero();
+    result.gnssPosData = Vec3::Constant(nan);
+    result.gnssVelData = Vec3::Constant(nan);
+
+    bool hasGnssPos = false;
+    bool hasGnssVel = false;
 
     if (setEcefReference(data))
     {
         const Vec3 ned = ecefToNed(data.GnssPosEcef.cast<double>());
         if (std::isfinite(ned(0)) && std::isfinite(ned(1)) && std::isfinite(ned(2)))
         {
-            result.gnssData = ned;
+            result.gnssPosData = ned;
+            hasGnssPos = true;
         }
     }
+
+    const Vec3 gnssVel = data.GnssVelNed.cast<double>();
+    if (gpsFixHasPosition(data.Fix) &&
+        std::isfinite(gnssVel(0)) && std::isfinite(gnssVel(1)) && std::isfinite(gnssVel(2)))
+    {
+        result.gnssVelData = gnssVel;
+        hasGnssVel = true;
+    }
+
+    result.hasGnssMeasurement = hasGnssPos && hasGnssVel;
 
     return result;
 }

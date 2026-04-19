@@ -259,7 +259,8 @@ bool VectorNav::configureBinaryOutput1(std::uint16_t rateDivisor)
                                   IMUGROUP_MAG |
                                   IMUGROUP_ACCEL),
             static_cast<GpsGroup>(GPSGROUP_FIX |
-                                  GPSGROUP_POSECEF),
+                                  GPSGROUP_POSECEF |
+                                  GPSGROUP_VELNED),
             static_cast<AttitudeGroup>(ATTITUDEGROUP_DCM),
             static_cast<InsGroup>(INSGROUP_POSECEF |
                                   INSGROUP_VELNED |
@@ -378,7 +379,8 @@ void VectorNav::handlePacket(vn::protocol::uart::Packet& packet)
 
     const auto expectedGps =
         static_cast<GpsGroup>(GPSGROUP_FIX |
-                              GPSGROUP_POSECEF);
+                              GPSGROUP_POSECEF |
+                              GPSGROUP_VELNED);
 
     const auto expectedAttitude =
         static_cast<AttitudeGroup>(ATTITUDEGROUP_DCM);
@@ -427,12 +429,17 @@ void VectorNav::handlePacket(vn::protocol::uart::Packet& packet)
         d.Accel << v.x, v.y, v.z;
     }
 
-    // GPSGROUP_FIX | GPSGROUP_POSECEF
+    // GPSGROUP_FIX | GPSGROUP_POSECEF | GPSGROUP_VELNED
     d.Fix = packet.extractUint8();
 
     {
         const vec3d v = packet.extractVec3d();
         d.GnssPosEcef << v.x, v.y, v.z;
+    }
+
+    {
+        const vec3f v = packet.extractVec3f();
+        d.GnssVelNed << v.x, v.y, v.z;
     }
 
     {

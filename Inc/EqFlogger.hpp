@@ -18,8 +18,9 @@
 //void logFiltered(EqFOutput output);
 
 
-void printMeasurements(const EqFparserResult& result);
+void printMeasurements(const EqFparserResult& result, const vectornavData& data, const Vec3& magneticField);
 void printVNEstimate(const vectornavData& data);
 void printTGEqFEstimate(const EqFOutput& output, const vectornavData& data);
+void logMeasurements(const EqFparserResult& result, const vectornavData& data, const Vec3& magneticField);
 void logVNEstimate(const vectornavData& data);
 void logTGEqFEstimate(const EqFOutput& output, const vectornavData& data);
