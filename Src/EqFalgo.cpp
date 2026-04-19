@@ -5,7 +5,7 @@
  * Public API
  */
 
-EqFalgo::EqFalgo(Mat3 Qmag, double Qbaro, Mat3 Qgnss, Mat18 Sigma0, Mat18 P)
+TGEqF::TGEqF(Mat3 Qmag, double Qbaro, Mat3 Qgnss, Mat18 Sigma0, Mat18 P)
 {
     this->Qmag = Qmag;
     this->Qbaro = Qbaro;
@@ -18,13 +18,13 @@ EqFalgo::EqFalgo(Mat3 Qmag, double Qbaro, Mat3 Qgnss, Mat18 Sigma0, Mat18 P)
     last_time = 0;
 }
 
-EqFalgo::EqFalgo()
-    : EqFalgo(defaultQmag(), defaultQbaro(), defaultQgnss(), defaultSigma0(), defaultP())
+TGEqF::TGEqF()
+    : TGEqF(defaultQmag(), defaultQbaro(), defaultQgnss(), defaultSigma0(), defaultP())
 {
 }
 
 
-void EqFalgo::IMUpropagagte(Vec3 gyro, Vec3 acc, double time) {
+void TGEqF::IMUpropagagte(Vec3 gyro, Vec3 acc, double time) {
 
     dt = time - last_time;
     last_time = time;
@@ -47,7 +47,7 @@ void EqFalgo::IMUpropagagte(Vec3 gyro, Vec3 acc, double time) {
 
 }
 
-void EqFalgo::MagUpdate(Vec3 mag) {
+void TGEqF::MagUpdate(Vec3 mag) {
     Vec3 delta = SO3::wedge(m) * Xhat.pose.R() * mag;
 
     Mat3x18 C = Mat3x18::Zero();
@@ -73,7 +73,7 @@ void EqFalgo::MagUpdate(Vec3 mag) {
     Sigma = GammaExp * (Mat18::Identity() - K * C) * Sigma * GammaExp.transpose();
 }
 
-void EqFalgo::BaroUpdate(double baro) {
+void TGEqF::BaroUpdate(double baro) {
     const double delta = Xhat.pose.p().z() - baro;
 
     Eigen::Matrix<double, 1, 18> C = Eigen::Matrix<double, 1, 18>::Zero();
@@ -101,7 +101,7 @@ void EqFalgo::BaroUpdate(double baro) {
 
 }
 
-void EqFalgo::GnssUpdate(Vec3 gnss) {
+void TGEqF::GnssUpdate(Vec3 gnss) {
     const Vec3 delta = gnss - Xhat.pose.p();
 
     Mat3x18 C = Mat3x18::Zero();
@@ -131,7 +131,7 @@ void EqFalgo::GnssUpdate(Vec3 gnss) {
 }
 
 
-EqFOutput EqFalgo::GetEqFOutput() {
+EqFOutput TGEqF::GetEqFOutput() {
     EqFOutput res;
     res.Xhat = Xhat;
     res.Sigma = Sigma;
@@ -143,7 +143,7 @@ EqFOutput EqFalgo::GetEqFOutput() {
  * Unexported methods
  */
 
-void EqFalgo::calculateA(Vec3 gyro, Vec3 acc)
+void TGEqF::calculateA(Vec3 gyro, Vec3 acc)
 {
     const Vec9 beta_hat = SE23::vee(Xhat.bias);
     const Vec9 b_hat = -Xhat.pose.invAdjoint() * beta_hat;
@@ -171,7 +171,7 @@ void EqFalgo::calculateA(Vec3 gyro, Vec3 acc)
     A.block<9, 9>(9, 9) = SE23::adjoint(w0_with_g);
 }
 
-void EqFalgo::calculateLift(Vec3 gyro, Vec3 acc)
+void TGEqF::calculateLift(Vec3 gyro, Vec3 acc)
 {
     const Vec9 beta_hat = SE23::vee(Xhat.bias);
     const Vec9 b_hat = -Xhat.pose.invAdjoint() * beta_hat;
@@ -194,7 +194,7 @@ void EqFalgo::calculateLift(Vec3 gyro, Vec3 acc)
  * Default static matrices
  */
 
-Mat3 EqFalgo::defaultQmag()
+Mat3 TGEqF::defaultQmag()
 {
     Mat3 Q = Mat3::Zero();
 
@@ -206,12 +206,12 @@ Mat3 EqFalgo::defaultQmag()
     return Q;
 }
 
-double EqFalgo::defaultQbaro()
+double TGEqF::defaultQbaro()
 {
     return 2.0 * 2.0;
 }
 
-Mat3 EqFalgo::defaultQgnss()
+Mat3 TGEqF::defaultQgnss()
 {
     Mat3 Q = Mat3::Zero();
 
@@ -223,7 +223,7 @@ Mat3 EqFalgo::defaultQgnss()
     return Q;
 }
 
-Mat18 EqFalgo::defaultSigma0()
+Mat18 TGEqF::defaultSigma0()
 {
     Mat18 S = Mat18::Zero();
 
@@ -240,7 +240,7 @@ Mat18 EqFalgo::defaultSigma0()
     return S;
 }
 
-Mat18 EqFalgo::defaultP()
+Mat18 TGEqF::defaultP()
 {
     Mat18 P = Mat18::Zero();
 
@@ -252,6 +252,9 @@ Mat18 EqFalgo::defaultP()
     P.block<3, 3>(9, 9) = 1e-3 * Mat3::Identity();   // gyro bias RW
     P.block<3, 3>(12, 12) = 1e-3 * Mat3::Identity(); // accel bias RW
     P.block<3, 3>(15, 15) = 1e-3 * Mat3::Identity(); // virtual bias RW
+
+    // convert to discrete time
+    P = (Mat18::Identity() + A*dt) * P * (Mat18::Identity() + A.transpose()*dt);
 
     return P;
 }

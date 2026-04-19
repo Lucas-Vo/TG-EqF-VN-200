@@ -9,7 +9,7 @@ typedef struct
     Mat18 Sigma;
 } EqFOutput;
 
-class EqFalgo
+class TGEqF
 {
     // constants
     const Vec3 g = {0, 0, 9.81};
@@ -39,11 +39,11 @@ class EqFalgo
     static double defaultQbaro();
     static Mat3 defaultQgnss();
     static Mat18 defaultSigma0();
-    static Mat18 defaultP();
+    Mat18 defaultP();
 
 public:
-    EqFalgo(Mat3 Qmag, double Qbaro, Mat3 Qgnss, Mat18 Sigma0, Mat18 P);
-    EqFalgo(); // tuned for VN200
+    TGEqF(Mat3 Qmag, double Qbaro, Mat3 Qgnss, Mat18 Sigma0, Mat18 P);
+    TGEqF(); // tuned for VN200
 
     void IMUpropagagte(Vec3 gyro, Vec3 acc, double time);
     void MagUpdate(Vec3 mag);

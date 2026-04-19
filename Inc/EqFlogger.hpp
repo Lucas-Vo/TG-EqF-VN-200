@@ -19,5 +19,7 @@
 
 
 void printMeasurements(const EqFparserResult& result);
-void printINSEstimate(const vectornavData& data);
-void printEqFEstimate(const EqFOutput& output, const vectornavData& data);
+void printVNEstimate(const vectornavData& data);
+void printTGEqFEstimate(const EqFOutput& output, const vectornavData& data);
+void logVNEstimate(const vectornavData& data);
+void logTGEqFEstimate(const EqFOutput& output, const vectornavData& data);
