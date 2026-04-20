@@ -5,8 +5,7 @@
  * Public API
  */
 
-TGEqF::TGEqF(const Vec3& magneticField, Mat3 Qmag, double Qbaro, Mat6 Qgnss, Mat18 Sigma0, Mat18 P)
-    : m(magneticField)
+TGEqF::TGEqF(Mat3 Qmag, double Qbaro, Mat6 Qgnss, Mat18 Sigma0, Mat18 P)
 {
     this->Qmag = Qmag;
     this->Qbaro = Qbaro;
@@ -19,8 +18,8 @@ TGEqF::TGEqF(const Vec3& magneticField, Mat3 Qmag, double Qbaro, Mat6 Qgnss, Mat
     last_time = 0;
 }
 
-TGEqF::TGEqF(const Vec3& magneticField)
-    : TGEqF(magneticField, defaultQmag(), defaultQbaro(), defaultQgnss(), defaultSigma0(), defaultP())
+TGEqF::TGEqF()
+    : TGEqF(defaultQmag(), defaultQbaro(), defaultQgnss(), defaultSigma0(), defaultP())
 {
 }
 
@@ -48,11 +47,16 @@ void TGEqF::IMUpropagagte(Vec3 gyro, Vec3 acc, double time) {
 
 }
 
-void TGEqF::MagUpdate(Vec3 mag) {
-    Vec3 delta = SO3::wedge(m) * Xhat.pose.R() * mag;
+void TGEqF::MagUpdate(const Mat3& mag) {
+    if (!mag.allFinite())
+    {
+        return;
+    }
+
+    const Vec3 delta = SO3::log(SO3(mag) * SO3(Xhat.pose.R()).inv());
 
     Mat3x18 C = Mat3x18::Zero();
-    C.block<3,3>(0,0) = SO3::wedge(m) * SO3::wedge(m);
+    C.block<3,3>(0,0) = Mat3::Identity();
 
     Mat3 Sinv = (C * Sigma * C.transpose() + Qmag).inverse();
     Mat18x3 K = Sigma * C.transpose() * Sinv;

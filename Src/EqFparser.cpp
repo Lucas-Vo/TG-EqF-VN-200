@@ -1,11 +1,14 @@
 #include "EqFparser.hpp"
 
+#include <algorithm>
+#include <cmath>
 #include <limits>
 
 constexpr double kNsToS = 1.0e-9;
 constexpr double kKelvinOffset = 273.15;
 constexpr double kRd = 287.05;
 constexpr double kG = 9.80665;
+constexpr double kTwoPi = 6.28318530717958647692;
 
 // ---------------- Baro reference ----------------
 double gRefPressurekPa = 0.0;   // first valid pressure
@@ -46,6 +49,50 @@ double pressureToAltitude(double pressurekPa, double tempK)
 Vec3 gRefEcef = Vec3::Zero();   // first valid 3D-fix ECEF position
 Mat3 gRen = Mat3::Identity();   // ECEF -> NED rotation at the reference point
 bool gNedInitialized = false;
+
+// ---------------- Mag reference ----------------
+const Vec3 gRefMagneticField = [] {
+    Vec3 magneticField = Vec3::Zero();
+    magneticField << 0.184682, 0.064668, 0.980668;
+    return magneticField;
+}();
+
+Mat3 skewSymmetric(const Vec3& value)
+{
+    Mat3 skew = Mat3::Zero();
+    skew <<
+        0.0, -value(2),  value(1),
+        value(2), 0.0, -value(0),
+        -value(1), value(0), 0.0;
+    return skew;
+}
+
+Mat3 fromTwoVectorsRotation(const Vec3& from, const Vec3& to)
+{
+    if (!from.allFinite() || !to.allFinite() || from.norm() <= 0.0 || to.norm() <= 0.0)
+    {
+        const double nan = std::numeric_limits<double>::quiet_NaN();
+        return Mat3::Constant(nan);
+    }
+
+    const Vec3 fromUnit = from.normalized();
+    const Vec3 toUnit = to.normalized();
+    const double cosine = std::clamp(fromUnit.dot(toUnit), -1.0, 1.0);
+
+    if (cosine > 1.0 - 1.0e-12)
+    {
+        return Mat3::Identity();
+    }
+
+    if (cosine < -1.0 + 1.0e-12)
+    {
+        return Eigen::AngleAxisd(0.5 * kTwoPi, fromUnit.unitOrthogonal()).toRotationMatrix();
+    }
+
+    const Vec3 cross = fromUnit.cross(toUnit);
+    const Mat3 crossSkew = skewSymmetric(cross);
+    return (Mat3::Identity() + crossSkew + (crossSkew * crossSkew) / (1.0 + cosine)).transpose();
+}
 
 bool calculateEcefToNedRotation(const Vec3& ecefRef, Mat3& Ren)
 {
@@ -97,9 +144,14 @@ bool setEcefReference(const vectornavData& data)
     return gNedInitialized;
 }
 
+bool hasEcefReference()
+{
+    return gNedInitialized;
+}
+
 Vec3 ecefToNed(const Vec3& ecef)
 {
-    if (!gNedInitialized ||
+    if (!hasEcefReference() ||
         !(std::isfinite(ecef(0)) && std::isfinite(ecef(1)) && std::isfinite(ecef(2))) ||
         ecef.norm() <= 1.0)
     {
@@ -124,14 +176,14 @@ EqFparserResult EqFparser(const vectornavData& data)
     result.gyroData = data.UncompGyro.cast<double>();
     result.accData = data.UncompAccel.cast<double>();
 
-    // ---------------- Mag: normalize to unit ----------------
-    Vec3 mag = data.Mag.cast<double>();
-    const double magNormSq = mag.squaredNorm();
-    if (magNormSq > 0.0)
+    // ---------------- Mag: convert field direction into attitude estimate ----------------
+    result.magData = Mat3::Constant(nan);
+
+    const Vec3 mag = data.Mag.cast<double>();
+    if (mag.allFinite() && mag.squaredNorm() > 0.0)
     {
-        mag *= 1.0 / std::sqrt(magNormSq);
+        result.magData = fromTwoVectorsRotation(gRefMagneticField, mag);
     }
-    result.magData = mag;
 
     // ---------------- Baro: calculate altitude in NED ----------------
     const double pressurekPa = static_cast<double>(data.Pres);

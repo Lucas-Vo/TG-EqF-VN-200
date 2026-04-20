@@ -41,16 +41,6 @@ namespace {
         << "  [" << value(2, 0) << ", " << value(2, 1) << ", " << value(2, 2) << "]\n";
     }
 
-    Mat3 skewSymmetric(const Vec3& value)
-    {
-        Mat3 skew = Mat3::Zero();
-        skew <<
-            0.0, -value(2),  value(1),
-            value(2), 0.0, -value(0),
-            -value(1), value(0), 0.0;
-        return skew;
-    }
-
     AngleAxisSample toAngleAxis(const Mat3& rotation)
     {
         if (!rotation.allFinite())
@@ -85,39 +75,6 @@ namespace {
 
         return sample;
     }
-
-    Mat3 fromTwoVectorsRotation(const Vec3& from, const Vec3& to)
-    {
-        if (!from.allFinite() || !to.allFinite() || from.norm() <= 0.0 || to.norm() <= 0.0)
-        {
-            const double nan = std::numeric_limits<double>::quiet_NaN();
-            return Mat3::Constant(nan);
-        }
-
-        const Vec3 fromUnit = from.normalized();
-        const Vec3 toUnit = to.normalized();
-        const double cosine = std::clamp(fromUnit.dot(toUnit), -1.0, 1.0);
-
-        if (cosine > 1.0 - 1.0e-12)
-        {
-            return Mat3::Identity();
-        }
-
-        if (cosine < -1.0 + 1.0e-12)
-        {
-            return Eigen::AngleAxisd(0.5 * kTwoPi, fromUnit.unitOrthogonal()).toRotationMatrix();
-        }
-
-        const Vec3 cross = fromUnit.cross(toUnit);
-        const Mat3 crossSkew = skewSymmetric(cross);
-        return Mat3::Identity() + crossSkew + (crossSkew * crossSkew) / (1.0 + cosine);
-    }
-
-    AngleAxisSample fromTwoVectorsAngleAxis(const Vec3& from, const Vec3& to)
-    {
-        return toAngleAxis(fromTwoVectorsRotation(from, to));
-    }
-
     void printAngleAxis(std::ostream& os, const char* label, const AngleAxisSample& value)
     {
         os << label
@@ -149,19 +106,17 @@ void printRaw(const EqFparserResult& result)
     std::cout << std::fixed << std::setprecision(6)
               << kAnsiOrange
               << "Raw\n";
-    printVec3Line(std::cout, "  magData", result.magData);
+    printMat3Block(std::cout, "  magData", result.magData);
     std::cout << "  baroData=" << result.baroData << '\n'
               << kAnsiReset;
 }
 
-void printMeasurements(const EqFparserResult& result, const vectornavData& data, const Vec3& magneticField)
+void printMeasurements(const EqFparserResult& result, const vectornavData& data)
 {
-    const Mat3 magRotation = fromTwoVectorsRotation(magneticField, result.magData);
-
     std::cout << std::fixed << std::setprecision(6)
               << kAnsiGreen
               << "Measurements\n";
-    printMat3Block(std::cout, "  R(m->magData)", magRotation);
+    printMat3Block(std::cout, "  magData", result.magData);
     printVec3Line(std::cout, "  positionNED", result.gnssPosData);
     printVec3Line(std::cout, "  velNED", result.gnssVelData);
     printVec3Line(std::cout, "  Accel", data.UncompAccel.cast<double>());
@@ -170,7 +125,7 @@ void printMeasurements(const EqFparserResult& result, const vectornavData& data,
 
 void printVNEstimate(const vectornavData& data)
 {
-    const Vec3 positionNed = setEcefReference(data)
+    const Vec3 positionNed = hasEcefReference()
         ? ecefToNed(data.InsPosEcef.cast<double>())
         : Vec3::Constant(std::numeric_limits<double>::quiet_NaN());
 
@@ -209,10 +164,10 @@ void printTGEqFEstimate(const EqFOutput& output, const vectornavData& data)
               << kAnsiReset;
 }
 
-void logMeasurements(const EqFparserResult& result, const vectornavData& data, const Vec3& magneticField)
+void logMeasurements(const EqFparserResult& result, const vectornavData& data)
 {
     const double nan = std::numeric_limits<double>::quiet_NaN();
-    const AngleAxisSample angleAxis = fromTwoVectorsAngleAxis(magneticField, result.magData);
+    const AngleAxisSample angleAxis = toAngleAxis(result.magData);
 
     std::ofstream stream = openCsvStream("log/Measurements.csv");
     if (!stream)
@@ -237,7 +192,7 @@ void logVNEstimate(const vectornavData& data)
 {
     const Mat3 rotation = data.Dcm.transpose().cast<double>();
     const AngleAxisSample angleAxis = toAngleAxis(rotation);
-    const Vec3 positionNed = setEcefReference(data)
+    const Vec3 positionNed = hasEcefReference()
         ? ecefToNed(data.InsPosEcef.cast<double>())
         : Vec3::Constant(std::numeric_limits<double>::quiet_NaN());
 

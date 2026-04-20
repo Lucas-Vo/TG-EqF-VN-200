@@ -4,7 +4,7 @@
 #include "linalgtypes.hpp"
 
 typedef struct {
-    Vec3 magData; // attitude with |m| = 1
+    Mat3 magData; // body-to-inertial rotation estimate from magnetometer
     double baroData; // negative altitude in meter
     Vec3 gyroData; // rad/s
     Vec3 accData; // ms⁻²
@@ -16,5 +16,5 @@ typedef struct {
 
 EqFparserResult EqFparser(const vectornavData& data);
 
-bool setEcefReference(const vectornavData& data);
+bool hasEcefReference();
 Vec3 ecefToNed(const Vec3& ecef);

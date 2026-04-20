@@ -13,7 +13,6 @@ class TGEqF
 {
     // constants
     const Vec3 g = {0, 0, 9.81};
-    const Vec3 m;
 
     SE23xse23 Xhat;     // State estimate
     Mat18 Sigma;        // state covariance
@@ -42,11 +41,11 @@ class TGEqF
     static Mat18 defaultP();
 
 public:
-    TGEqF(const Vec3& magneticField, Mat3 Qmag, double Qbaro, Mat6 Qgnss, Mat18 Sigma0, Mat18 P);
-    explicit TGEqF(const Vec3& magneticField); // tuned for VN200
+    TGEqF(Mat3 Qmag, double Qbaro, Mat6 Qgnss, Mat18 Sigma0, Mat18 P);
+    TGEqF(); // tuned for VN200
 
     void IMUpropagagte(Vec3 gyro, Vec3 acc, double time);
-    void MagUpdate(Vec3 mag);
+    void MagUpdate(const Mat3& mag);
     void BaroUpdate(double baro);
     void GnssUpdate(Vec3 gnssPos, Vec3 gnssVel);
     EqFOutput GetEqFOutput();
