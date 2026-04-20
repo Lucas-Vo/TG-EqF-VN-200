@@ -223,13 +223,13 @@ Mat6 TGEqF::defaultQgnss()
 {
     Mat6 Q = Mat6::Zero();
 
-    // Position: 5m in xy, 30m in z. Velocity: 1m/s on all axes.
-    Q(0, 0) = 5.0 * 5.0;
-    Q(1, 1) = 5.0 * 5.0;
-    Q(2, 2) = 5.0 * 5.0;
-    Q(3, 3) = 20.0 * 20.0;
-    Q(4, 4) = 20.0 * 20.0;
-    Q(5, 5) = 20.0 * 20.0;
+    // Position: 5m in xyz. Velocity: 5m/s on all axes.
+    Q(0, 0) = 3.0 * 3.0;
+    Q(1, 1) = 3.0 * 3.0;
+    Q(2, 2) = 3.0 * 3.0;
+    Q(3, 3) = 1.5 * 1.5;
+    Q(4, 4) = 1.5 * 1.5;
+    Q(5, 5) = 1.5 * 1.5;
 
     return Q;
 }
@@ -242,7 +242,7 @@ Mat18 TGEqF::defaultSigma0()
     // [rot(3), vel(3), pos(3), gyro_bias(3), accel_bias(3), virtual_bias(3)]
 
     S.block<3, 3>(0, 0) = 2.0 * 2.0 * Mat3::Identity();     // attitude
-    S.block<3, 3>(3, 3) = 1.0 * 1.0 * Mat3::Identity();     // velocity
+    S.block<3, 3>(3, 3) = 0.5 * 0.5 * Mat3::Identity();     // velocity
     S.block<3, 3>(6, 6) = 5.0 * 5.0 * Mat3::Identity();     // position
     S.block<3, 3>(9, 9) = 0.02 * 0.02 * Mat3::Identity();   // gyro bias
     S.block<3, 3>(12, 12) = 0.20 * 0.20 * Mat3::Identity(); // accel bias
@@ -258,7 +258,7 @@ Mat18 TGEqF::defaultP()
     // Continuous-time process covariance placeholders
 
     P.block<3, 3>(0, 0) = 1e-1 * Mat3::Identity();   // rot process
-    P.block<3, 3>(3, 3) = 1e-1 * Mat3::Identity();   // vel process
+    P.block<3, 3>(3, 3) = 1 * Mat3::Identity();   // vel process
     P.block<3, 3>(6, 6) = 1e-2 * Mat3::Identity();   // pos process
     P.block<3, 3>(9, 9) = 1e-3 * Mat3::Identity();   // gyro bias RW
     P.block<3, 3>(12, 12) = 1e-3 * Mat3::Identity(); // accel bias RW

@@ -15,6 +15,9 @@ def main(show: bool = True) -> None:
         ["R00", "R01", "R02", "R11", "R12", "R22"],
     )
 
+    for axis in axes:
+        axis.set_ylim(-1.0, 1.0)
+
     add_comparison_line(axes[0], vn_data, tgeqf_data, measurements_data, "R00", "R00")
     add_comparison_line(axes[1], vn_data, tgeqf_data, measurements_data, "R01", "R01")
     add_comparison_line(axes[2], vn_data, tgeqf_data, measurements_data, "R02", "R02")

@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <iostream>
 #include <limits>
 
 constexpr double kNsToS = 1.0e-9;
@@ -53,7 +54,7 @@ bool gNedInitialized = false;
 // ---------------- Mag reference ----------------
 const Vec3 gRefMagneticField = [] {
     Vec3 magneticField = Vec3::Zero();
-    magneticField << 0.184682, 0.064668, 0.980668;
+    magneticField << 0.257519, 0.213259, 0.942446;
     return magneticField;
 }();
 
@@ -77,6 +78,10 @@ Mat3 fromTwoVectorsRotation(const Vec3& from, const Vec3& to)
 
     const Vec3 fromUnit = from.normalized();
     const Vec3 toUnit = to.normalized();
+    std::cout << "fromTwoVectorsRotation normalized vector=["
+              << toUnit(0) << ", "
+              << toUnit(1) << ", "
+              << toUnit(2) << "]\n";
     const double cosine = std::clamp(fromUnit.dot(toUnit), -1.0, 1.0);
 
     if (cosine > 1.0 - 1.0e-12)
