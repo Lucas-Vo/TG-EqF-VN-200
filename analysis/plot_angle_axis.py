@@ -5,7 +5,7 @@ import matplotlib.pyplot as plt
 from _plot_common import LOG_DIR, add_comparison_line, load_series, setup_axes
 
 
-def main() -> None:
+def main(show: bool = True) -> None:
     vn_data = load_series(LOG_DIR / "VNEstimate.csv")
     tgeqf_data = load_series(LOG_DIR / "TGEqFEstimate.csv")
     measurements_data = load_series(LOG_DIR / "Measurements.csv")
@@ -22,7 +22,8 @@ def main() -> None:
     add_comparison_line(axes[4], vn_data, tgeqf_data, measurements_data, "angle_axis_sin", "sin(alpha)")
 
     figure.tight_layout()
-    plt.show()
+    if show:
+        plt.show()
 
 
 if __name__ == "__main__":

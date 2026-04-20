@@ -40,7 +40,7 @@ int main(int argc, char** argv)
     }
 
     // filter logic
-    const Vec3 m = {0.373029, 0.024338, 0.927500};
+    const Vec3 m = {-0.362255, -0.012619, 0.931994};
     TGEqF TgEqF = TGEqF(m);
 
     // logging logic
@@ -60,6 +60,7 @@ int main(int argc, char** argv)
 
         // parse to EqF friendly data
         EqFparserResult result = EqFparser(data);
+        printRaw(result);
         printMeasurements(result, data, m);
         logMeasurements(result, data, m);
 

@@ -6,11 +6,13 @@
 #include <fstream>
 #include <iomanip>
 #include <limits>
+#include <unordered_set>
 
 namespace {
     constexpr const char* kAnsiRed = "\033[91m";
+    constexpr const char* kAnsiOrange = "\033[38;5;208m";
     constexpr const char* kAnsiGreen = "\033[32m";
-    constexpr const char* kAnsiPurple = "\033[105m";
+    constexpr const char* kAnsiPurple = "\033[94m";
     constexpr const char* kAnsiReset = "\033[0m";
     constexpr const char* kEstimateCsvHeader =
         "timestamp,angle_axis_x,angle_axis_y,angle_axis_z,angle_axis_cos,angle_axis_sin,"
@@ -37,6 +39,16 @@ namespace {
         << "  [" << value(0, 0) << ", " << value(0, 1) << ", " << value(0, 2) << "]\n"
         << "  [" << value(1, 0) << ", " << value(1, 1) << ", " << value(1, 2) << "]\n"
         << "  [" << value(2, 0) << ", " << value(2, 1) << ", " << value(2, 2) << "]\n";
+    }
+
+    Mat3 skewSymmetric(const Vec3& value)
+    {
+        Mat3 skew = Mat3::Zero();
+        skew <<
+            0.0, -value(2),  value(1),
+            value(2), 0.0, -value(0),
+            -value(1), value(0), 0.0;
+        return skew;
     }
 
     AngleAxisSample toAngleAxis(const Mat3& rotation)
@@ -74,17 +86,36 @@ namespace {
         return sample;
     }
 
-    AngleAxisSample fromTwoVectorsAngleAxis(const Vec3& from, const Vec3& to)
+    Mat3 fromTwoVectorsRotation(const Vec3& from, const Vec3& to)
     {
         if (!from.allFinite() || !to.allFinite() || from.norm() <= 0.0 || to.norm() <= 0.0)
         {
             const double nan = std::numeric_limits<double>::quiet_NaN();
-            return {Vec3::Constant(nan), nan};
+            return Mat3::Constant(nan);
         }
 
-        const Eigen::Quaterniond rotation =
-            Eigen::Quaterniond::FromTwoVectors(from.normalized(), to.normalized());
-        return toAngleAxis(rotation.toRotationMatrix());
+        const Vec3 fromUnit = from.normalized();
+        const Vec3 toUnit = to.normalized();
+        const double cosine = std::clamp(fromUnit.dot(toUnit), -1.0, 1.0);
+
+        if (cosine > 1.0 - 1.0e-12)
+        {
+            return Mat3::Identity();
+        }
+
+        if (cosine < -1.0 + 1.0e-12)
+        {
+            return Eigen::AngleAxisd(0.5 * kTwoPi, fromUnit.unitOrthogonal()).toRotationMatrix();
+        }
+
+        const Vec3 cross = fromUnit.cross(toUnit);
+        const Mat3 crossSkew = skewSymmetric(cross);
+        return Mat3::Identity() + crossSkew + (crossSkew * crossSkew) / (1.0 + cosine);
+    }
+
+    AngleAxisSample fromTwoVectorsAngleAxis(const Vec3& from, const Vec3& to)
+    {
+        return toAngleAxis(fromTwoVectorsRotation(from, to));
     }
 
     void printAngleAxis(std::ostream& os, const char* label, const AngleAxisSample& value)
@@ -98,11 +129,14 @@ namespace {
     std::ofstream openCsvStream(const std::filesystem::path& path)
     {
         std::filesystem::create_directories(path.parent_path());
-        const bool needsHeader =
-            !std::filesystem::exists(path) || std::filesystem::file_size(path) == 0;
+        static std::unordered_set<std::string> initializedPaths;
+        const std::string key = path.string();
+        const bool firstWriteThisRun = initializedPaths.insert(key).second;
 
-        std::ofstream stream(path, std::ios::app);
-        if (stream && needsHeader)
+        std::ofstream stream(
+            path,
+            firstWriteThisRun ? (std::ios::out | std::ios::trunc) : (std::ios::out | std::ios::app));
+        if (stream && firstWriteThisRun)
         {
             stream << kEstimateCsvHeader << '\n';
         }
@@ -110,14 +144,24 @@ namespace {
     }
 }
 
+void printRaw(const EqFparserResult& result)
+{
+    std::cout << std::fixed << std::setprecision(6)
+              << kAnsiOrange
+              << "Raw\n";
+    printVec3Line(std::cout, "  magData", result.magData);
+    std::cout << "  baroData=" << result.baroData << '\n'
+              << kAnsiReset;
+}
+
 void printMeasurements(const EqFparserResult& result, const vectornavData& data, const Vec3& magneticField)
 {
-    const AngleAxisSample angleAxis = fromTwoVectorsAngleAxis(magneticField, result.magData);
+    const Mat3 magRotation = fromTwoVectorsRotation(magneticField, result.magData);
 
     std::cout << std::fixed << std::setprecision(6)
               << kAnsiGreen
               << "Measurements\n";
-    printAngleAxis(std::cout, "  angleAxis", angleAxis);
+    printMat3Block(std::cout, "  R(m->magData)", magRotation);
     printVec3Line(std::cout, "  positionNED", result.gnssPosData);
     printVec3Line(std::cout, "  velNED", result.gnssVelData);
     printVec3Line(std::cout, "  Accel", data.UncompAccel.cast<double>());
