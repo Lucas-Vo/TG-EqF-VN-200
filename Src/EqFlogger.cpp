@@ -15,16 +15,9 @@ namespace {
     constexpr const char* kAnsiPurple = "\033[94m";
     constexpr const char* kAnsiReset = "\033[0m";
     constexpr const char* kEstimateCsvHeader =
-        "timestamp,angle_axis_x,angle_axis_y,angle_axis_z,angle_axis_cos,angle_axis_sin,"
+        "timestamp,R00,R01,R02,R11,R12,R22,"
         "pos_N,pos_E,pos_D,vel_N,vel_E,vel_D,accel_x,accel_y,accel_z,pos_uncert,vel_uncert";
     constexpr double kNsToS = 1.0e-9;
-    constexpr double kTwoPi = 6.28318530717958647692;
-
-    struct AngleAxisSample
-    {
-        Vec3 axis = Vec3::UnitX();
-        double angle = 0.0;
-    };
 
     template <typename Derived>
     void printVec3Line(std::ostream& os, const char* label, const Eigen::MatrixBase<Derived>& value)
@@ -41,46 +34,14 @@ namespace {
         << "  [" << value(2, 0) << ", " << value(2, 1) << ", " << value(2, 2) << "]\n";
     }
 
-    AngleAxisSample toAngleAxis(const Mat3& rotation)
+    void writeUpperTriangularRotation(std::ostream& os, const Mat3& rotation)
     {
-        if (!rotation.allFinite())
-        {
-            const double nan = std::numeric_limits<double>::quiet_NaN();
-            return {Vec3::Constant(nan), nan};
-        }
-
-        const Eigen::AngleAxisd angleAxis(rotation);
-        AngleAxisSample sample{};
-        sample.axis = angleAxis.axis();
-        sample.angle = angleAxis.angle();
-
-        if (!sample.axis.allFinite() || !std::isfinite(sample.angle))
-        {
-            const double nan = std::numeric_limits<double>::quiet_NaN();
-            return {Vec3::Constant(nan), nan};
-        }
-
-        sample.angle = std::fmod(sample.angle, kTwoPi);
-        if (sample.angle < 0.0)
-        {
-            sample.angle += kTwoPi;
-        }
-        sample.angle = std::clamp(sample.angle, 0.0, std::nextafter(kTwoPi, 0.0));
-
-        if (sample.angle < 1.0e-12)
-        {
-            sample.axis = Vec3::UnitX();
-            sample.angle = 0.0;
-        }
-
-        return sample;
-    }
-    void printAngleAxis(std::ostream& os, const char* label, const AngleAxisSample& value)
-    {
-        os << label
-           << "=[" << value.axis(0) << ", " << value.axis(1) << ", " << value.axis(2) << "]"
-           << ", cos=" << std::cos(value.angle)
-           << ", sin=" << std::sin(value.angle) << '\n';
+        os << rotation(0, 0) << ','
+           << rotation(0, 1) << ','
+           << rotation(0, 2) << ','
+           << rotation(1, 1) << ','
+           << rotation(1, 2) << ','
+           << rotation(2, 2);
     }
 
     std::ofstream openCsvStream(const std::filesystem::path& path)
@@ -167,7 +128,6 @@ void printTGEqFEstimate(const EqFOutput& output, const vectornavData& data)
 void logMeasurements(const EqFparserResult& result, const vectornavData& data)
 {
     const double nan = std::numeric_limits<double>::quiet_NaN();
-    const AngleAxisSample angleAxis = toAngleAxis(result.magData);
 
     std::ofstream stream = openCsvStream("log/Measurements.csv");
     if (!stream)
@@ -176,9 +136,9 @@ void logMeasurements(const EqFparserResult& result, const vectornavData& data)
     }
 
     stream << std::fixed << std::setprecision(3)
-           << result.time << ','
-           << angleAxis.axis(0) << ',' << angleAxis.axis(1) << ',' << angleAxis.axis(2) << ','
-           << std::cos(angleAxis.angle) << ',' << std::sin(angleAxis.angle) << ','
+           << result.time << ',';
+    writeUpperTriangularRotation(stream, result.magData);
+    stream << ','
            << result.gnssPosData(0) << ',' << result.gnssPosData(1) << ',' << result.gnssPosData(2) << ','
            << result.gnssVelData(0) << ',' << result.gnssVelData(1) << ',' << result.gnssVelData(2) << ','
            << static_cast<double>(data.UncompAccel(0)) << ','
@@ -191,7 +151,6 @@ void logMeasurements(const EqFparserResult& result, const vectornavData& data)
 void logVNEstimate(const vectornavData& data)
 {
     const Mat3 rotation = data.Dcm.transpose().cast<double>();
-    const AngleAxisSample angleAxis = toAngleAxis(rotation);
     const Vec3 positionNed = hasEcefReference()
         ? ecefToNed(data.InsPosEcef.cast<double>())
         : Vec3::Constant(std::numeric_limits<double>::quiet_NaN());
@@ -203,9 +162,9 @@ void logVNEstimate(const vectornavData& data)
     }
 
     stream << std::fixed << std::setprecision(3)
-           << static_cast<double>(data.TimeStartup) * kNsToS << ','
-           << angleAxis.axis(0) << ',' << angleAxis.axis(1) << ',' << angleAxis.axis(2) << ','
-           << std::cos(angleAxis.angle) << ',' << std::sin(angleAxis.angle) << ','
+           << static_cast<double>(data.TimeStartup) * kNsToS << ',';
+    writeUpperTriangularRotation(stream, rotation);
+    stream << ','
            << positionNed(0) << ',' << positionNed(1) << ',' << positionNed(2) << ','
            << static_cast<double>(data.InsVelNed(0)) << ','
            << static_cast<double>(data.InsVelNed(1)) << ','
@@ -225,7 +184,7 @@ void logTGEqFEstimate(const EqFOutput& output, const vectornavData& data)
         std::sqrt(std::max(0.0, output.Sigma.block<3, 3>(3, 3).trace()));
     const double posTraceSqrt =
         std::sqrt(std::max(0.0, output.Sigma.block<3, 3>(6, 6).trace()));
-    const AngleAxisSample angleAxis = toAngleAxis(output.Xhat.pose.R());
+    const Mat3 rotation = output.Xhat.pose.R();
 
     std::ofstream stream = openCsvStream("log/TGEqFEstimate.csv");
     if (!stream)
@@ -234,9 +193,9 @@ void logTGEqFEstimate(const EqFOutput& output, const vectornavData& data)
     }
 
     stream << std::fixed << std::setprecision(3)
-           << static_cast<double>(data.TimeStartup) * kNsToS << ','
-           << angleAxis.axis(0) << ',' << angleAxis.axis(1) << ',' << angleAxis.axis(2) << ','
-           << std::cos(angleAxis.angle) << ',' << std::sin(angleAxis.angle) << ','
+           << static_cast<double>(data.TimeStartup) * kNsToS << ',';
+    writeUpperTriangularRotation(stream, rotation);
+    stream << ','
            << output.Xhat.pose.p()(0) << ',' << output.Xhat.pose.p()(1) << ',' << output.Xhat.pose.p()(2) << ','
            << output.Xhat.pose.v()(0) << ',' << output.Xhat.pose.v()(1) << ',' << output.Xhat.pose.v()(2) << ','
            << accelMinusBiasV(0) << ',' << accelMinusBiasV(1) << ',' << accelMinusBiasV(2) << ','

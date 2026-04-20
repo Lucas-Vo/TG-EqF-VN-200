@@ -34,10 +34,10 @@ TODO:
 
 - move setting this value into the constructor, and make it so that i set the magnetic field in main const Vec3 m = {0.373029, 0.024338, 0.927500};
 
-- modify printMeasurements to print vectornavData.gnsspos, vectornavData.gnssvel, UncompAccel, m cross EqFparserResult.magData converted to angle axis with cos sin, note that m must be passed in as parameter, its print format should be the exact same as TGEqF and VN200, except that you dont have pos_uncert and vel_uncert
+- modify printMeasurements to print vectornavData.gnsspos, vectornavData.gnssvel, UncompAccel, and the upper-triangular rotation-matrix entries from EqFparserResult.magData, with the exact same format as TGEqF and VN200 except that you dont have pos_uncert and vel_uncert
 - it should
     constexpr const char* kEstimateCsvHeader =
-        "timestamp,angle_axis_x,angle_axis_y,angle_axis_z,angle_axis_cos,angle_axis_sin,"
+        "timestamp,R00,R01,R02,R11,R12,R22,"
         "pos_N,pos_E,pos_D,vel_N,vel_E,vel_D,accel_x,accel_y,accel_z,pos_uncert,vel_uncert";
 - write a logMeasurements that writes to a csv file
 - modify all python files to plot measurements in addition to tgeqf and vn200, make its line lime green

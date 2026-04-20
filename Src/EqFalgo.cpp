@@ -207,9 +207,9 @@ Mat3 TGEqF::defaultQmag()
     Mat3 Q = Mat3::Zero();
 
     // Magnetometer xyz
-    Q(0, 0) = 0.02 * 0.02;
-    Q(1, 1) = 0.02 * 0.02;
-    Q(2, 2) = 0.02 * 0.02;
+    Q(0, 0) = 0.2 * 0.2;
+    Q(1, 1) = 0.2 * 0.2;
+    Q(2, 2) = 0.2 * 0.2;
 
     return Q;
 }
@@ -226,10 +226,10 @@ Mat6 TGEqF::defaultQgnss()
     // Position: 5m in xy, 30m in z. Velocity: 1m/s on all axes.
     Q(0, 0) = 5.0 * 5.0;
     Q(1, 1) = 5.0 * 5.0;
-    Q(2, 2) = 30.0 * 30.0;
-    Q(3, 3) = 1.0 * 1.0;
-    Q(4, 4) = 1.0 * 1.0;
-    Q(5, 5) = 1.0 * 1.0;
+    Q(2, 2) = 5.0 * 5.0;
+    Q(3, 3) = 20.0 * 20.0;
+    Q(4, 4) = 20.0 * 20.0;
+    Q(5, 5) = 20.0 * 20.0;
 
     return Q;
 }
@@ -257,7 +257,7 @@ Mat18 TGEqF::defaultP()
 
     // Continuous-time process covariance placeholders
 
-    P.block<3, 3>(0, 0) = 1e-2 * Mat3::Identity();   // rot process
+    P.block<3, 3>(0, 0) = 1e-1 * Mat3::Identity();   // rot process
     P.block<3, 3>(3, 3) = 1e-1 * Mat3::Identity();   // vel process
     P.block<3, 3>(6, 6) = 1e-2 * Mat3::Identity();   // pos process
     P.block<3, 3>(9, 9) = 1e-3 * Mat3::Identity();   // gyro bias RW
