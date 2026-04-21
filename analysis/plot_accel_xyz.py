@@ -2,22 +2,20 @@ from __future__ import annotations
 
 import matplotlib.pyplot as plt
 
-from _plot_common import LOG_DIR, add_comparison_line, load_series, setup_axes
+from _plot_common import add_comparison_line, load_comparison_series, setup_axes
 
 
 def main(show: bool = True) -> None:
-    vn_data = load_series(LOG_DIR / "VNEstimate.csv")
-    tgeqf_data = load_series(LOG_DIR / "TGEqFEstimate.csv")
-    measurements_data = load_series(LOG_DIR / "Measurements.csv")
+    comparison_series = load_comparison_series()
 
     figure, axes = setup_axes(
         "Acceleration XYZ Comparison",
         ["x [m/s^2]", "y [m/s^2]", "z [m/s^2]"],
     )
 
-    add_comparison_line(axes[0], vn_data, tgeqf_data, measurements_data, "accel_x", "x")
-    add_comparison_line(axes[1], vn_data, tgeqf_data, measurements_data, "accel_y", "y")
-    add_comparison_line(axes[2], vn_data, tgeqf_data, measurements_data, "accel_z", "z")
+    add_comparison_line(axes[0], comparison_series, "accel_x", "x")
+    add_comparison_line(axes[1], comparison_series, "accel_y", "y")
+    add_comparison_line(axes[2], comparison_series, "accel_z", "z")
 
     figure.tight_layout()
     if show:

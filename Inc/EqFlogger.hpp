@@ -21,7 +21,7 @@
 void printRaw(const EqFparserResult& result);
 void printMeasurements(const EqFparserResult& result, const vectornavData& data);
 void printVNEstimate(const vectornavData& data);
-void printTGEqFEstimate(const EqFOutput& output, const vectornavData& data);
+void printTGEqFEstimate(const EqFOutput& output, const vectornavData& data, const char* title);
 void logMeasurements(const EqFparserResult& result, const vectornavData& data);
 void logVNEstimate(const vectornavData& data);
-void logTGEqFEstimate(const EqFOutput& output, const vectornavData& data);
+void logTGEqFEstimate(const EqFOutput& output, const vectornavData& data, const char* csvPath);

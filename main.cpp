@@ -11,6 +11,10 @@
 namespace
 {
 volatile std::sig_atomic_t gRunning = 1;
+constexpr const char* kEqFLabelBnuEqNu = "TG-EqF b_nu = nu";
+constexpr const char* kEqFLabelBnuNeqNu = "TG-EqF b_nu != nu";
+constexpr const char* kEqFLogPathBnuEqNu = "log/TGEqFEstimate_b_nu_eq_nu.csv";
+constexpr const char* kEqFLogPathBnuNeqNu = "log/TGEqFEstimate_b_nu_neq_nu.csv";
 
 void signalHandler(int)
 {
@@ -40,7 +44,8 @@ int main(int argc, char** argv)
     }
 
     // filter logic
-    TGEqF TgEqF;
+    TGEqF tgEqFBnuEqNu(false);
+    TGEqF tgEqFBnuNeqNu(true);
 
     // logging logic
 
@@ -64,23 +69,29 @@ int main(int argc, char** argv)
         logMeasurements(result, data);
 
         // IMU propogate
-        TgEqF.IMUpropagagte(result.gyroData, result.accData, result.time);
+        tgEqFBnuEqNu.IMUpropagagte(result.gyroData, result.accData, result.time);
+        tgEqFBnuNeqNu.IMUpropagagte(result.gyroData, result.accData, result.time);
 
         // GNSS update
         if (result.hasGnssMeasurement)
         {
-            TgEqF.GnssUpdate(result.gnssPosData, result.gnssVelData);
+            tgEqFBnuEqNu.GnssUpdate(result.gnssPosData, result.gnssVelData);
+            tgEqFBnuNeqNu.GnssUpdate(result.gnssPosData, result.gnssVelData);
         }
 
         // baro update
         // EqF.BaroUpdate(result.baroData);
         
         // mag update
-        TgEqF.MagUpdate(result.magData);
+        tgEqFBnuEqNu.MagUpdate(result.magData);
+        tgEqFBnuNeqNu.MagUpdate(result.magData);
         
-        EqFOutput output = TgEqF.GetEqFOutput();
-        printTGEqFEstimate(output, data);
-        logTGEqFEstimate(output, data);
+        const EqFOutput outputBnuEqNu = tgEqFBnuEqNu.GetEqFOutput();
+        const EqFOutput outputBnuNeqNu = tgEqFBnuNeqNu.GetEqFOutput();
+        printTGEqFEstimate(outputBnuEqNu, data, kEqFLabelBnuEqNu);
+        logTGEqFEstimate(outputBnuEqNu, data, kEqFLogPathBnuEqNu);
+        printTGEqFEstimate(outputBnuNeqNu, data, kEqFLabelBnuNeqNu);
+        logTGEqFEstimate(outputBnuNeqNu, data, kEqFLogPathBnuNeqNu);
 
         std::this_thread::sleep_for(std::chrono::milliseconds(20));
     }

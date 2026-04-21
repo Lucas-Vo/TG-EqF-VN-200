@@ -5,7 +5,8 @@
  * Public API
  */
 
-TGEqF::TGEqF(Mat3 Qmag, double Qbaro, Mat6 Qgnss, Mat18 Sigma0, Mat18 P)
+TGEqF::TGEqF(Mat3 Qmag, double Qbaro, Mat6 Qgnss, Mat18 Sigma0, Mat18 P, bool measureBMu)
+    : constraintBNu(measureBMu)
 {
     this->Qmag = Qmag;
     this->Qbaro = Qbaro;
@@ -18,8 +19,8 @@ TGEqF::TGEqF(Mat3 Qmag, double Qbaro, Mat6 Qgnss, Mat18 Sigma0, Mat18 P)
     last_time = 0;
 }
 
-TGEqF::TGEqF()
-    : TGEqF(defaultQmag(), defaultQbaro(), defaultQgnss(), defaultSigma0(), defaultP())
+TGEqF::TGEqF(bool measureBMu)
+    : TGEqF(defaultQmag(), defaultQbaro(), defaultQgnss(), defaultSigma0(), defaultP(), measureBMu)
 {
 }
 
@@ -106,20 +107,47 @@ void TGEqF::BaroUpdate(double baro) {
 
 }
 
-void TGEqF::GnssUpdate(Vec3 gnssPos, Vec3 gnssVel) {
-    Vec6 delta = Vec6::Zero();
+void TGEqF::GnssUpdate(Vec3 gnssPos, Vec3 gnssVel)
+{
+    const Vec9 beta_hat = SE23::vee(Xhat.bias);
+    const Vec9 b_hat = -Xhat.pose.invAdjoint() * beta_hat;
+
+    const int m = constraintBNu ? 9 : 6;
+
+    Eigen::VectorXd delta(m);
+    delta.setZero();
     delta.segment<3>(0) = gnssPos - Xhat.pose.p();
     delta.segment<3>(3) = gnssVel - Xhat.pose.v();
 
-    Mat6x18 C = Mat6x18::Zero();
+    Eigen::MatrixXd C(m, 18);
+    C.setZero();
+
+    // Existing GNSS position/velocity Jacobian
     C.block<3,3>(0,0) = -SO3::wedge(Xhat.pose.p());
     C.block<3,3>(0,6) = Mat3::Identity();
     C.block<3,3>(3,0) = -SO3::wedge(Xhat.pose.v());
     C.block<3,3>(3,3) = Mat3::Identity();
 
-    Mat6 Sinv = (C * Sigma * C.transpose() + Qgnss).inverse();
-    Mat18x6 K = Sigma * C.transpose() * Sinv;
+    Eigen::MatrixXd Q(m, m);
+    Q.setZero();
+    Q.block<6,6>(0,0) = Qgnss;
+
+    if (constraintBNu)
+    {
+        // Paper / Python-style pseudo-measurement: b_nu = 0
+        delta.segment<3>(6) = -b_hat.segment<3>(6);
+
+        C.block<3,3>(6,9)  = Xhat.pose.R().transpose() * SO3::wedge(Xhat.pose.p());
+        C.block<3,3>(6,15) = -Xhat.pose.R().transpose();
+
+        // same order as Python reference
+        Q.block<3,3>(6,6) = 1e-3 * Mat3::Identity();
+    }
+
+    Eigen::MatrixXd S = C * Sigma * C.transpose() + Q;
+    Eigen::MatrixXd K = Sigma * C.transpose() * S.inverse();
     Vec18 DeltaVee = K * delta;
+
     se23xse23 Delta;
     Delta.pose = SE23::wedge(DeltaVee.segment<9>(0));
     Delta.bias = SE23::wedge(DeltaVee.segment<9>(9));
@@ -131,13 +159,11 @@ void TGEqF::GnssUpdate(Vec3 gnssPos, Vec3 gnssVel) {
     ad_Delta.block<9,9>(9,0) = ad_Delta2;
     ad_Delta.block<9,9>(9,9) = ad_Delta1;
 
-    Mat18 GammaExp = (0.5*ad_Delta).exp(); // check if this should be negative ref https://arxiv.org/pdf/2209.04965 (44)
+    Mat18 GammaExp = (0.5 * ad_Delta).exp();
 
     Xhat = MulSE23xse23(ExpSE23xse23(Delta), Xhat);
     Sigma = GammaExp * (Mat18::Identity() - K * C) * Sigma * GammaExp.transpose();
-
 }
-
 
 EqFOutput TGEqF::GetEqFOutput() {
     EqFOutput res;
@@ -151,15 +177,24 @@ EqFOutput TGEqF::GetEqFOutput() {
  * Unexported methods
  */
 
+Vec9 TGEqF::buildInputVector(Vec3 gyro, Vec3 acc)
+{
+    Vec9 w = Vec9::Zero();
+    w.segment<3>(0) = gyro;
+    w.segment<3>(3) = acc;
+
+    // Paper-style practical implementation:
+    // the virtual input nu is set to zero.
+    w.segment<3>(6).setZero();
+
+    return w;
+}
 void TGEqF::calculateA(Vec3 gyro, Vec3 acc)
 {
     const Vec9 beta_hat = SE23::vee(Xhat.bias);
     const Vec9 b_hat = -Xhat.pose.invAdjoint() * beta_hat;
 
-    Vec9 w = Vec9::Zero();
-    w.segment<3>(0) = gyro;
-    w.segment<3>(3) = acc;
-    w.segment<3>(6) = b_hat.segment<3>(6);
+    const Vec9 w = buildInputVector(gyro, acc);
     Mat3 g_wedge = SO3::wedge(g);
 
     const se23 w_wedge = SE23::wedge(w);
@@ -184,10 +219,7 @@ void TGEqF::calculateLift(Vec3 gyro, Vec3 acc)
     const Vec9 beta_hat = SE23::vee(Xhat.bias);
     const Vec9 b_hat = -Xhat.pose.invAdjoint() * beta_hat;
 
-    Vec9 w = Vec9::Zero();
-    w.segment<3>(0) = gyro;
-    w.segment<3>(3) = acc;
-    w.segment<3>(6) = b_hat.segment<3>(6);
+    const Vec9 w = buildInputVector(gyro, acc);
 
     se23 f10g = se23::Zero();
     f10g.block<3, 1>(0, 3) = g;

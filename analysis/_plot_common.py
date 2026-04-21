@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import csv
+from dataclasses import dataclass
 from pathlib import Path
 
 import matplotlib.pyplot as plt
@@ -9,8 +10,32 @@ import matplotlib.pyplot as plt
 ROOT_DIR = Path(__file__).resolve().parents[1]
 LOG_DIR = ROOT_DIR / "log"
 VN_COLOR = "#d62728"
-TGEQF_COLOR = "#6a5acd"
+TGEQF_EQ_COLOR = "#6a5acd"
+TGEQF_NEQ_COLOR = "#17becf"
 MEASUREMENTS_COLOR = "#32cd32"
+
+
+@dataclass(frozen=True)
+class SeriesSpec:
+    path: Path
+    color: str
+    label: str
+
+
+SERIES_SPECS = (
+    SeriesSpec(LOG_DIR / "VNEstimate.csv", VN_COLOR, "VN200"),
+    SeriesSpec(
+        LOG_DIR / "TGEqFEstimate_b_nu_eq_nu.csv",
+        TGEQF_EQ_COLOR,
+        r"TG-EqF $b_\nu = \nu$",
+    ),
+    SeriesSpec(
+        LOG_DIR / "TGEqFEstimate_b_nu_neq_nu.csv",
+        TGEQF_NEQ_COLOR,
+        r"TG-EqF $b_\nu \neq \nu$",
+    ),
+    SeriesSpec(LOG_DIR / "Measurements.csv", MEASUREMENTS_COLOR, "Measurements"),
+)
 
 
 def load_series(path: Path) -> dict[str, list[float]]:
@@ -29,6 +54,10 @@ def load_series(path: Path) -> dict[str, list[float]]:
         return data
 
 
+def load_comparison_series() -> list[tuple[SeriesSpec, dict[str, list[float]]]]:
+    return [(series_spec, load_series(series_spec.path)) for series_spec in SERIES_SPECS]
+
+
 def setup_axes(title: str, ylabels: list[str]) -> tuple[plt.Figure, list[plt.Axes]]:
     figure, _ = plt.subplots(len(ylabels), 1, sharex=True, figsize=(12, 8))
     axes_list = list(figure.axes)
@@ -44,23 +73,15 @@ def setup_axes(title: str, ylabels: list[str]) -> tuple[plt.Figure, list[plt.Axe
 
 def add_comparison_line(
     axis: plt.Axes,
-    vn_data: dict[str, list[float]],
-    tgeqf_data: dict[str, list[float]],
-    measurements_data: dict[str, list[float]],
+    comparison_series: list[tuple[SeriesSpec, dict[str, list[float]]]],
     column: str,
     label: str,
 ) -> None:
-    axis.plot(vn_data["timestamp"], vn_data[column], color=VN_COLOR, label=f"VN200 {label}")
-    axis.plot(
-        tgeqf_data["timestamp"],
-        tgeqf_data[column],
-        color=TGEQF_COLOR,
-        label=f"TGEqF {label}",
-    )
-    axis.plot(
-        measurements_data["timestamp"],
-        measurements_data[column],
-        color=MEASUREMENTS_COLOR,
-        label=f"Measurements {label}",
-    )
+    for series_spec, data in comparison_series:
+        axis.plot(
+            data["timestamp"],
+            data[column],
+            color=series_spec.color,
+            label=f"{series_spec.label} {label}",
+        )
     axis.legend(loc="best")
