@@ -11,6 +11,13 @@ LOG_DIR = ROOT_DIR / "log"
 VN_COLOR = "#d62728"
 TGEQF_COLOR = "#6a5acd"
 MEASUREMENTS_COLOR = "#32cd32"
+IEEE_SERIF_FONTS = [
+    "Times New Roman",
+    "Times",
+    "Nimbus Roman",
+    "TeX Gyre Termes",
+    "DejaVu Serif",
+]
 
 
 def load_series(path: Path) -> dict[str, list[float]]:
@@ -29,14 +36,46 @@ def load_series(path: Path) -> dict[str, list[float]]:
         return data
 
 
-def setup_axes(title: str, ylabels: list[str]) -> tuple[plt.Figure, list[plt.Axes]]:
+def apply_ieee_style() -> None:
+    plt.rcParams.update(
+        {
+            "font.family": "serif",
+            "font.serif": IEEE_SERIF_FONTS,
+            "mathtext.fontset": "stix",
+            "axes.titlesize": 13,
+            "axes.titleweight": "bold",
+            "axes.labelsize": 12,
+            "xtick.labelsize": 11,
+            "ytick.labelsize": 11,
+            "legend.fontsize": 11,
+            "legend.frameon": True,
+            "legend.fancybox": False,
+            "legend.framealpha": 1.0,
+            "figure.titlesize": 14,
+        }
+    )
+
+
+def setup_axes(
+    title: str | None,
+    ylabels: list[str],
+    subplot_titles: list[str] | None = None,
+) -> tuple[plt.Figure, list[plt.Axes]]:
+    apply_ieee_style()
     figure, _ = plt.subplots(len(ylabels), 1, sharex=True, figsize=(12, 8))
     axes_list = list(figure.axes)
 
-    figure.suptitle(title)
+    if title:
+        figure.suptitle(title, fontweight="bold")
+
     for axis, ylabel in zip(axes_list, ylabels):
-        axis.set_ylabel(ylabel)
+        if ylabel:
+            axis.set_ylabel(ylabel)
         axis.grid(True, alpha=0.3)
+
+    if subplot_titles is not None:
+        for axis, subplot_title in zip(axes_list, subplot_titles):
+            axis.set_title(subplot_title, fontweight="bold", pad=8)
 
     axes_list[-1].set_xlabel("timestamp [s]")
     return figure, axes_list
@@ -49,6 +88,7 @@ def add_comparison_line(
     measurements_data: dict[str, list[float]],
     column: str,
     label: str,
+    show_legend: bool = True,
 ) -> None:
     axis.plot(vn_data["timestamp"], vn_data[column], color=VN_COLOR, label=f"VN200 {label}")
     axis.plot(
@@ -63,4 +103,23 @@ def add_comparison_line(
         color=MEASUREMENTS_COLOR,
         label=f"Measurements {label}",
     )
-    axis.legend(loc="best")
+    if show_legend:
+        axis.legend(loc="best")
+
+
+def add_shared_legend(figure: plt.Figure, axes: list[plt.Axes]) -> None:
+    legend_entries = {}
+    for axis in axes:
+        handles, labels = axis.get_legend_handles_labels()
+        for handle, label in zip(handles, labels):
+            if label and label != "_nolegend_" and label not in legend_entries:
+                legend_entries[label] = handle
+
+    if legend_entries:
+        figure.legend(
+            legend_entries.values(),
+            legend_entries.keys(),
+            loc="upper center",
+            bbox_to_anchor=(0.5, 0.98),
+            ncol=len(legend_entries),
+        )
