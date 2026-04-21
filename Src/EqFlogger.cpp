@@ -67,7 +67,7 @@ void printRaw(const EqFparserResult& result)
     std::cout << std::fixed << std::setprecision(6)
               << kAnsiOrange
               << "Raw\n";
-    printMat3Block(std::cout, "  magData", result.magData);
+    // printMat3Block(std::cout, "  magData", result.magData);
     std::cout << "  baroData=" << result.baroData << '\n'
               << kAnsiReset;
 }

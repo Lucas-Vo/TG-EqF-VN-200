@@ -223,13 +223,14 @@ Mat6 TGEqF::defaultQgnss()
 {
     Mat6 Q = Mat6::Zero();
 
-    // Position: 5m in xyz. Velocity: 5m/s on all axes.
-    Q(0, 0) = 3.0 * 3.0;
-    Q(1, 1) = 3.0 * 3.0;
-    Q(2, 2) = 3.0 * 3.0;
-    Q(3, 3) = 1.5 * 1.5;
-    Q(4, 4) = 1.5 * 1.5;
-    Q(5, 5) = 1.5 * 1.5;
+    // higher means following measuremnts a lot
+    // lower means means smoother, 1e-5 -> velU = 1.1,  1e-4 -> velU = 0.5 1e-3 -> velU = 0.5
+    Q.block<3, 3>(0, 0) = 1e-2 * Mat3::Identity();
+
+    // higher means more jagged
+    // lower means following measured perfectly, 10-> posU = 1.1,100->PosU = 2.9, 40-> PosU = 2.2
+    Q.block<3, 3>(3, 3) = 9 * Mat3::Identity();
+
 
     return Q;
 }
@@ -245,7 +246,7 @@ Mat18 TGEqF::defaultSigma0()
     S.block<3, 3>(3, 3) = 0.5 * 0.5 * Mat3::Identity();     // velocity
     S.block<3, 3>(6, 6) = 5.0 * 5.0 * Mat3::Identity();     // position
     S.block<3, 3>(9, 9) = 0.02 * 0.02 * Mat3::Identity();   // gyro bias
-    S.block<3, 3>(12, 12) = 0.20 * 0.20 * Mat3::Identity(); // accel bias
+    S.block<3, 3>(12, 12) = 2 * 2 * Mat3::Identity(); // accel bias
     S.block<3, 3>(15, 15) = 0.50 * 0.50 * Mat3::Identity(); // virtual bias
 
     return S;
@@ -258,11 +259,21 @@ Mat18 TGEqF::defaultP()
     // Continuous-time process covariance placeholders
 
     P.block<3, 3>(0, 0) = 1e-1 * Mat3::Identity();   // rot process
-    P.block<3, 3>(3, 3) = 1 * Mat3::Identity();   // vel process
-    P.block<3, 3>(6, 6) = 1e-2 * Mat3::Identity();   // pos process
+
+    // higher means following position measurements perfectly, convergence of accel bias is slower
+    P.block<3, 3>(3, 3) = 1e-9 * Mat3::Identity();   // vel process
+
+    // does nothing
+    P.block<3, 3>(6, 6) = 1 * Mat3::Identity();   // pos process
+
     P.block<3, 3>(9, 9) = 1e-3 * Mat3::Identity();   // gyro bias RW
-    P.block<3, 3>(12, 12) = 1e-3 * Mat3::Identity(); // accel bias RW
-    P.block<3, 3>(15, 15) = 1e-3 * Mat3::Identity(); // virtual bias RW
+
+    // higher means follows measurements more, bias converges faster, higher PosU
+    // lower means bias convergence is slow, allows constant offset in velocity and position 1->4sec convergence, lower PosU
+    P.block<3, 3>(12, 12) = 0.1 * Mat3::Identity(); // accel bias RW 
+
+    // doesnt do anything
+    P.block<3, 3>(15, 15) = 1e-9 * Mat3::Identity(); // virtual bias RW
 
     return P;
 }
