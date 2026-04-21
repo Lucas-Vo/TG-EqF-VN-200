@@ -73,7 +73,7 @@ int main(int argc, char** argv)
         }
 
         // baro update
-        // EqF.BaroUpdate(result.baroData);
+        TgEqF.BaroUpdate(result.baroData);
         
         // mag update
         TgEqF.MagUpdate(result.magData);

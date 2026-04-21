@@ -216,7 +216,7 @@ Mat3 TGEqF::defaultQmag()
 
 double TGEqF::defaultQbaro()
 {
-    return 2.0 * 2.0;
+    return 0.1 * 0.1;
 }
 
 Mat6 TGEqF::defaultQgnss()
@@ -225,7 +225,7 @@ Mat6 TGEqF::defaultQgnss()
 
     // higher means following measuremnts a lot
     // lower means means smoother, 1e-5 -> velU = 1.1,  1e-4 -> velU = 0.5 1e-3 -> velU = 0.5
-    Q.block<3, 3>(0, 0) = 1 * Mat3::Identity();
+    Q.block<3, 3>(0, 0) = 0.01 * Mat3::Identity();
 
     // higher means more jagged
     // lower means following measured perfectly, 10-> posU = 1.1,100->PosU = 2.9, 40-> PosU = 2.2
@@ -261,7 +261,7 @@ Mat18 TGEqF::defaultP()
     P.block<3, 3>(0, 0) = 1e-1 * Mat3::Identity();   // rot process
 
     // higher means following position measurements perfectly, convergence of accel bias is slower
-    P.block<3, 3>(3, 3) = 1e-9 * Mat3::Identity();   // vel process
+    P.block<3, 3>(3, 3) = 1 * Mat3::Identity();   // vel process
 
     // does nothing
     P.block<3, 3>(6, 6) = 1 * Mat3::Identity();   // pos process
