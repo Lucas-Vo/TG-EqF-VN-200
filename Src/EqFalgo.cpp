@@ -225,7 +225,7 @@ Mat6 TGEqF::defaultQgnss()
 
     // higher means following measuremnts a lot
     // lower means means smoother, 1e-5 -> velU = 1.1,  1e-4 -> velU = 0.5 1e-3 -> velU = 0.5
-    Q.block<3, 3>(0, 0) = 1e-2 * Mat3::Identity();
+    Q.block<3, 3>(0, 0) = 1 * Mat3::Identity();
 
     // higher means more jagged
     // lower means following measured perfectly, 10-> posU = 1.1,100->PosU = 2.9, 40-> PosU = 2.2

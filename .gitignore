@@ -3,3 +3,6 @@ CMakeFiles/
 .venv/
 .codex
 .CmakeCache.txt
+log/Measurements.csv
+log/TGEqFEstimate.csv
+log/VNEstimate.csv
