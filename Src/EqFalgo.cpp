@@ -5,7 +5,8 @@
  * Public API
  */
 
-TGEqF::TGEqF(Mat3 Qmag, double Qbaro, Mat6 Qgnss, Mat18 Sigma0, Mat18 P)
+TGEqF::TGEqF(Mat3 Qmag, double Qbaro, Mat6 Qgnss, Mat18 Sigma0, Mat18 P, bool applyReset)
+    : applyReset(applyReset)
 {
     this->Qmag = Qmag;
     this->Qbaro = Qbaro;
@@ -18,8 +19,8 @@ TGEqF::TGEqF(Mat3 Qmag, double Qbaro, Mat6 Qgnss, Mat18 Sigma0, Mat18 P)
     last_time = 0;
 }
 
-TGEqF::TGEqF()
-    : TGEqF(defaultQmag(), defaultQbaro(), defaultQgnss(), defaultSigma0(), defaultP())
+TGEqF::TGEqF(bool applyReset)
+    : TGEqF(defaultQmag(), defaultQbaro(), defaultQgnss(), defaultSigma0(), defaultP(), applyReset)
 {
 }
 
@@ -29,7 +30,7 @@ void TGEqF::IMUpropagagte(Vec3 gyro, Vec3 acc, double time) {
     dt = time - last_time;
     last_time = time;
     // make sure dt is good
-    if (dt > 0.1) {
+    if (dt > 0.4) {
         return;
     }
     calculateA(gyro, acc);
@@ -75,7 +76,15 @@ void TGEqF::MagUpdate(const Mat3& mag) {
     Mat18 GammaExp = (0.5*ad_Delta).exp();
 
     Xhat = MulSE23xse23(ExpSE23xse23(Delta), Xhat);
-    Sigma = GammaExp * (Mat18::Identity() - K * C) * Sigma * GammaExp.transpose();
+    const Mat18 innovationUpdate = Mat18::Identity() - K * C;
+    if (applyReset)
+    {
+        Sigma = GammaExp * innovationUpdate * Sigma * GammaExp.transpose();
+    }
+    else
+    {
+        Sigma = innovationUpdate * Sigma;
+    }
 }
 
 void TGEqF::BaroUpdate(double baro) {
@@ -102,7 +111,15 @@ void TGEqF::BaroUpdate(double baro) {
     Mat18 GammaExp = (0.5 * ad_Delta).exp();
 
     Xhat = MulSE23xse23(ExpSE23xse23(Delta), Xhat);
-    Sigma = GammaExp * (Mat18::Identity() - K * C) * Sigma * GammaExp.transpose();
+    const Mat18 innovationUpdate = Mat18::Identity() - K * C;
+    if (applyReset)
+    {
+        Sigma = GammaExp * innovationUpdate * Sigma * GammaExp.transpose();
+    }
+    else
+    {
+        Sigma = innovationUpdate * Sigma;
+    }
 
 }
 
@@ -134,7 +151,15 @@ void TGEqF::GnssUpdate(Vec3 gnssPos, Vec3 gnssVel) {
     Mat18 GammaExp = (0.5*ad_Delta).exp(); // check if this should be negative ref https://arxiv.org/pdf/2209.04965 (44)
 
     Xhat = MulSE23xse23(ExpSE23xse23(Delta), Xhat);
-    Sigma = GammaExp * (Mat18::Identity() - K * C) * Sigma * GammaExp.transpose();
+    const Mat18 innovationUpdate = Mat18::Identity() - K * C;
+    if (applyReset)
+    {
+        Sigma = GammaExp * innovationUpdate * Sigma * GammaExp.transpose();
+    }
+    else
+    {
+        Sigma = innovationUpdate * Sigma;
+    }
 
 }
 
@@ -207,9 +232,9 @@ Mat3 TGEqF::defaultQmag()
     Mat3 Q = Mat3::Zero();
 
     // Magnetometer xyz
-    Q(0, 0) = 0.2 * 0.2;
-    Q(1, 1) = 0.2 * 0.2;
-    Q(2, 2) = 0.2 * 0.2;
+    Q(0, 0) = 1;
+    Q(1, 1) = 1;
+    Q(2, 2) = 1;
 
     return Q;
 }

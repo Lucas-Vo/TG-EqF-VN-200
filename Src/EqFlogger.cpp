@@ -13,10 +13,12 @@ namespace {
     constexpr const char* kAnsiOrange = "\033[38;5;208m";
     constexpr const char* kAnsiGreen = "\033[32m";
     constexpr const char* kAnsiPurple = "\033[94m";
+    constexpr const char* kAnsiCyan = "\033[96m";
     constexpr const char* kAnsiReset = "\033[0m";
     constexpr const char* kEstimateCsvHeader =
         "timestamp,R00,R01,R02,R11,R12,R22,"
         "pos_N,pos_E,pos_D,vel_N,vel_E,vel_D,accel_x,accel_y,accel_z,pos_uncert,vel_uncert";
+    constexpr const char* kFrobeniusCsvHeader = "timestamp,frobenius_norm";
     constexpr double kNsToS = 1.0e-9;
 
     template <typename Derived>
@@ -44,7 +46,7 @@ namespace {
            << rotation(2, 2);
     }
 
-    std::ofstream openCsvStream(const std::filesystem::path& path)
+    std::ofstream openCsvStream(const std::filesystem::path& path, const char* header)
     {
         std::filesystem::create_directories(path.parent_path());
         static std::unordered_set<std::string> initializedPaths;
@@ -56,7 +58,7 @@ namespace {
             firstWriteThisRun ? (std::ios::out | std::ios::trunc) : (std::ios::out | std::ios::app));
         if (stream && firstWriteThisRun)
         {
-            stream << kEstimateCsvHeader << '\n';
+            stream << header << '\n';
         }
         return stream;
     }
@@ -102,10 +104,8 @@ void printVNEstimate(const vectornavData& data)
               << kAnsiReset;
 }
 
-void printTGEqFEstimate(const EqFOutput& output, const vectornavData& data)
+void printTGEqFEstimate(const EqFOutput& output, const vectornavData& data, const char* title, const char* color)
 {
-    (void)data;
-
     const Vec9 bHat = -output.Xhat.pose.invAdjoint() * SE23::vee(output.Xhat.bias);
     const Vec3 accelMinusBiasV =  data.UncompAccel.cast<double>() - bHat.segment<3>(3);
     const double velTraceSqrt =
@@ -114,8 +114,8 @@ void printTGEqFEstimate(const EqFOutput& output, const vectornavData& data)
         std::sqrt(std::max(0.0, output.Sigma.block<3, 3>(6, 6).trace()));
 
     std::cout << std::fixed << std::setprecision(6)
-              << kAnsiPurple
-              << "EqF Estimate\n";
+              << color
+              << title << '\n';
     printMat3Block(std::cout, "  pose.R()", output.Xhat.pose.R());
     printVec3Line(std::cout, "  pose.p()", output.Xhat.pose.p());
     printVec3Line(std::cout, "  pose.v()", output.Xhat.pose.v());
@@ -129,7 +129,7 @@ void logMeasurements(const EqFparserResult& result, const vectornavData& data)
 {
     const double nan = std::numeric_limits<double>::quiet_NaN();
 
-    std::ofstream stream = openCsvStream("log/Measurements.csv");
+    std::ofstream stream = openCsvStream("log/Measurements.csv", kEstimateCsvHeader);
     if (!stream)
     {
         return;
@@ -155,7 +155,7 @@ void logVNEstimate(const vectornavData& data)
         ? ecefToNed(data.InsPosEcef.cast<double>())
         : Vec3::Constant(std::numeric_limits<double>::quiet_NaN());
 
-    std::ofstream stream = openCsvStream("log/VNEstimate.csv");
+    std::ofstream stream = openCsvStream("log/VNEstimate.csv", kEstimateCsvHeader);
     if (!stream)
     {
         return;
@@ -176,7 +176,7 @@ void logVNEstimate(const vectornavData& data)
            << static_cast<double>(data.InsVelU) << '\n';
 }
 
-void logTGEqFEstimate(const EqFOutput& output, const vectornavData& data)
+void logTGEqFEstimate(const EqFOutput& output, const vectornavData& data, const char* csvPath)
 {
     const Vec9 bHat = -output.Xhat.pose.invAdjoint() * SE23::vee(output.Xhat.bias);
     const Vec3 accelMinusBiasV = data.UncompAccel.cast<double>() - bHat.segment<3>(3);
@@ -186,7 +186,7 @@ void logTGEqFEstimate(const EqFOutput& output, const vectornavData& data)
         std::sqrt(std::max(0.0, output.Sigma.block<3, 3>(6, 6).trace()));
     const Mat3 rotation = output.Xhat.pose.R();
 
-    std::ofstream stream = openCsvStream("log/TGEqFEstimate.csv");
+    std::ofstream stream = openCsvStream(csvPath, kEstimateCsvHeader);
     if (!stream)
     {
         return;
@@ -201,4 +201,17 @@ void logTGEqFEstimate(const EqFOutput& output, const vectornavData& data)
            << accelMinusBiasV(0) << ',' << accelMinusBiasV(1) << ',' << accelMinusBiasV(2) << ','
            << posTraceSqrt << ','
            << velTraceSqrt << '\n';
+}
+
+void logFrobeniusNorm(double timestamp, double frobeniusNorm)
+{
+    std::ofstream stream = openCsvStream("log/fronebius.csv", kFrobeniusCsvHeader);
+    if (!stream)
+    {
+        return;
+    }
+
+    stream << std::fixed << std::setprecision(6)
+           << timestamp << ','
+           << frobeniusNorm << '\n';
 }

@@ -11,6 +11,12 @@
 namespace
 {
 volatile std::sig_atomic_t gRunning = 1;
+constexpr const char* kEqFLabelReset = "TG-EqF reset";
+constexpr const char* kEqFLabelNoReset = "TG-EqF no reset";
+constexpr const char* kEqFLogPathReset = "log/TGEqFEstimate_reset.csv";
+constexpr const char* kEqFLogPathNoReset = "log/TGEqFEstimate_no_reset.csv";
+constexpr const char* kEqFResetColor = "\033[94m";
+constexpr const char* kEqFNoResetColor = "\033[96m";
 
 void signalHandler(int)
 {
@@ -33,14 +39,15 @@ int main(int argc, char** argv)
     // const std::uint32_t streamBaud = 921600U;
     const std::uint32_t streamBaud = 115200U;
     // const std::uint32_t asyncDataOutputFrequency = 200U;
-    const std::uint32_t asyncDataOutputFrequency = 50U;
+    const std::uint32_t asyncDataOutputFrequency = 5U;
     if (!vn.init(port, streamBaud, asyncDataOutputFrequency))
     {
         return 1;
     }
 
     // filter logic
-    TGEqF TgEqF;
+    TGEqF tgEqFReset(true);
+    TGEqF tgEqFNoReset(false);
 
     // logging logic
 
@@ -64,25 +71,34 @@ int main(int argc, char** argv)
         logMeasurements(result, data);
 
         // IMU propogate
-        TgEqF.IMUpropagagte(result.gyroData, result.accData, result.time);
+        tgEqFReset.IMUpropagagte(result.gyroData, result.accData, result.time);
+        tgEqFNoReset.IMUpropagagte(result.gyroData, result.accData, result.time);
 
         // GNSS update
         if (result.hasGnssMeasurement)
         {
-            TgEqF.GnssUpdate(result.gnssPosData, result.gnssVelData);
+            tgEqFReset.GnssUpdate(result.gnssPosData, result.gnssVelData);
+            tgEqFNoReset.GnssUpdate(result.gnssPosData, result.gnssVelData);
         }
 
         // baro update
         // EqF.BaroUpdate(result.baroData);
         
         // mag update
-        TgEqF.MagUpdate(result.magData);
+        tgEqFReset.MagUpdate(result.magData);
+        tgEqFNoReset.MagUpdate(result.magData);
         
-        EqFOutput output = TgEqF.GetEqFOutput();
-        printTGEqFEstimate(output, data);
-        logTGEqFEstimate(output, data);
+        const EqFOutput outputReset = tgEqFReset.GetEqFOutput();
+        const EqFOutput outputNoReset = tgEqFNoReset.GetEqFOutput();
+        const double frobeniusNorm = (outputReset.Sigma - outputNoReset.Sigma).norm();
 
-        std::this_thread::sleep_for(std::chrono::milliseconds(20));
+        printTGEqFEstimate(outputReset, data, kEqFLabelReset, kEqFResetColor);
+        logTGEqFEstimate(outputReset, data, kEqFLogPathReset);
+        printTGEqFEstimate(outputNoReset, data, kEqFLabelNoReset, kEqFNoResetColor);
+        logTGEqFEstimate(outputNoReset, data, kEqFLogPathNoReset);
+        logFrobeniusNorm(result.time, frobeniusNorm);
+
+        std::this_thread::sleep_for(std::chrono::milliseconds(200));
     }
     return 0;
 }

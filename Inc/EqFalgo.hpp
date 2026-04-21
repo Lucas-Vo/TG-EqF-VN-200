@@ -13,6 +13,7 @@ class TGEqF
 {
     // constants
     const Vec3 g = {0, 0, 9.81};
+    bool applyReset;
 
     SE23xse23 Xhat;     // State estimate
     Mat18 Sigma;        // state covariance
@@ -41,8 +42,8 @@ class TGEqF
     static Mat18 defaultP();
 
 public:
-    TGEqF(Mat3 Qmag, double Qbaro, Mat6 Qgnss, Mat18 Sigma0, Mat18 P);
-    TGEqF(); // tuned for VN200
+    TGEqF(Mat3 Qmag, double Qbaro, Mat6 Qgnss, Mat18 Sigma0, Mat18 P, bool applyReset = true);
+    explicit TGEqF(bool applyReset = true); // tuned for VN200
 
     void IMUpropagagte(Vec3 gyro, Vec3 acc, double time);
     void MagUpdate(const Mat3& mag);
