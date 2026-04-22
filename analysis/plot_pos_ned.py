@@ -2,7 +2,15 @@ from __future__ import annotations
 
 import matplotlib.pyplot as plt
 
-from _plot_common import LOG_DIR, add_comparison_line, load_series, setup_axes
+from _plot_common import (
+    LOG_DIR,
+    MEASUREMENTS_COLOR,
+    TGEQF_COLOR,
+    VN_COLOR,
+    add_shared_legend,
+    load_series,
+    setup_axes,
+)
 
 
 def main(show: bool = True) -> None:
@@ -11,15 +19,25 @@ def main(show: bool = True) -> None:
     measurements_data = load_series(LOG_DIR / "Measurements.csv")
 
     figure, axes = setup_axes(
-        "Position NED Comparison",
-        ["north [m]", "east [m]", "down [m]"],
+        None,
+        ["", "", ""],
+        subplot_titles=["North [m]", "East [m]", "Down [m]"],
     )
 
-    add_comparison_line(axes[0], vn_data, tgeqf_data, measurements_data, "pos_N", "north")
-    add_comparison_line(axes[1], vn_data, tgeqf_data, measurements_data, "pos_E", "east")
-    add_comparison_line(axes[2], vn_data, tgeqf_data, measurements_data, "pos_D", "down")
+    series = [
+        ("VN200", vn_data, VN_COLOR),
+        ("TGEqF", tgeqf_data, TGEQF_COLOR),
+        ("Measurements", measurements_data, MEASUREMENTS_COLOR),
+    ]
+    position_columns = ["pos_N", "pos_E", "pos_D"]
 
-    figure.tight_layout()
+    for axis, column in zip(axes, position_columns):
+        for label, data, color in series:
+            axis.plot(data["timestamp"], data[column], color=color, label=label)
+
+    add_shared_legend(figure, axes)
+
+    figure.tight_layout(rect=(0.0, 0.0, 1.0, 0.93))
     if show:
         plt.show()
 

@@ -54,7 +54,7 @@ bool gNedInitialized = false;
 // ---------------- Mag reference ----------------
 const Vec3 gRefMagneticField = [] {
     Vec3 magneticField = Vec3::Zero();
-    magneticField << 0.257519, 0.213259, 0.942446;
+    magneticField << -0.034417, -0.213501, 0.976336;
     return magneticField;
 }();
 

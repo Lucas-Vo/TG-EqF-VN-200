@@ -90,18 +90,20 @@ def add_comparison_line(
     label: str,
     show_legend: bool = True,
 ) -> None:
-    axis.plot(vn_data["timestamp"], vn_data[column], color=VN_COLOR, label=f"VN200 {label}")
+    label_suffix = f" {label}" if label else ""
+
+    axis.plot(vn_data["timestamp"], vn_data[column], color=VN_COLOR, label=f"VN200{label_suffix}")
     axis.plot(
         tgeqf_data["timestamp"],
         tgeqf_data[column],
         color=TGEQF_COLOR,
-        label=f"TGEqF {label}",
+        label=f"TGEqF{label_suffix}",
     )
     axis.plot(
         measurements_data["timestamp"],
         measurements_data[column],
         color=MEASUREMENTS_COLOR,
-        label=f"Measurements {label}",
+        label=f"Measurements{label_suffix}",
     )
     if show_legend:
         axis.legend(loc="best")
