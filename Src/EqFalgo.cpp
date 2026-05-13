@@ -92,7 +92,6 @@ void TGEqF::BaroUpdate(double baro) {
 
     Eigen::Matrix<double, 1, 18> C = Eigen::Matrix<double, 1, 18>::Zero();
     C.block<1,3>(0,0) = Vec3{0, 0, 1}.transpose() * SO3::wedge(0.5 * (Xhat.pose.p() + Vec3{0, 0, baro}));
-    C(0, 8) = -1.0;
 
     const double Sinv = 1.0 / ((C * Sigma * C.transpose())(0, 0) + Qbaro);
     const Eigen::Matrix<double, 18, 1> K = Sigma * C.transpose() * Sinv;
